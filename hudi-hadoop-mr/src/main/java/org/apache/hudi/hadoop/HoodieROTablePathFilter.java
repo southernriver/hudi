@@ -46,6 +46,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.stream.Collectors;
 
 import static org.apache.hudi.common.config.HoodieCommonConfig.TIMESTAMP_AS_OF;
@@ -57,7 +58,7 @@ import static org.apache.hudi.common.config.HoodieCommonConfig.TIMESTAMP_AS_OF;
  * We can set this filter, on a query engine's Hadoop Config and if it respects path filters, then you should be able to
  * query both hoodie and non-hoodie tables as you would normally do.
  * <p>
- * hadoopConf.setClass("mapreduce.input.pathFilter.class", org.apache.hudi.hadoop .HoodieROTablePathFilter.class,
+ * hadoopConf.setClass("mapreduce.input.pathFilter.class", org.apache.hudi.hadoop.HoodieROTablePathFilter.class,
  * org.apache.hadoop.fs.PathFilter.class)
  */
 public class HoodieROTablePathFilter implements Configurable, PathFilter, Serializable {
@@ -79,7 +80,12 @@ public class HoodieROTablePathFilter implements Configurable, PathFilter, Serial
   /**
    * Table Meta Client Cache.
    */
-  Map<String, HoodieTableMetaClient> metaClientCache;
+  ConcurrentHashMap<String, HoodieTableMetaClient> metaClientCache;
+
+  /**
+   * HoodieTableFileSystemView Cache.
+   */
+  private ConcurrentHashMap<String, HoodieTableFileSystemView> hoodieTableFileSystemViewCache;
 
   /**
    * Hadoop configurations for the FileSystem.
@@ -97,9 +103,10 @@ public class HoodieROTablePathFilter implements Configurable, PathFilter, Serial
 
   public HoodieROTablePathFilter(Configuration conf) {
     this.hoodiePathCache = new ConcurrentHashMap<>();
-    this.nonHoodiePathCache = new HashSet<>();
+    this.nonHoodiePathCache = new CopyOnWriteArraySet<>();
+    this.metaClientCache = new ConcurrentHashMap<>();
+    this.hoodieTableFileSystemViewCache = new ConcurrentHashMap<>();
     this.conf = new SerializableConfiguration(conf);
-    this.metaClientCache = new HashMap<>();
   }
 
   /**
@@ -185,16 +192,21 @@ public class HoodieROTablePathFilter implements Configurable, PathFilter, Serial
             metaClientCache.put(baseDir.toString(), metaClient);
           }
 
+          HoodieTableMetaClient finalMetaClient = metaClient;
           if (getConf().get(TIMESTAMP_AS_OF.key()) != null) {
             // Build FileSystemViewManager with specified time, it's necessary to set this config when you may
             // access old version files. For example, in spark side, using "hoodie.datasource.read.paths"
             // which contains old version files, if not specify this value, these files will be filtered.
-            fsView = FileSystemViewManager.createInMemoryFileSystemViewWithTimeline(engineContext,
-                metaClient, HoodieInputFormatUtils.buildMetadataConfig(getConf()),
-                metaClient.getActiveTimeline().filterCompletedInstants().findInstantsBeforeOrEquals(getConf().get(TIMESTAMP_AS_OF.key())));
+            fsView = hoodieTableFileSystemViewCache.computeIfAbsent(baseDir.toString(), key ->
+                FileSystemViewManager.createInMemoryFileSystemViewWithTimeline(engineContext,
+                    finalMetaClient, HoodieInputFormatUtils.buildMetadataConfig(getConf()),
+                    finalMetaClient.getActiveTimeline().filterCompletedInstants().findInstantsBeforeOrEquals(getConf().get(TIMESTAMP_AS_OF.key())))
+            );
           } else {
-            fsView = FileSystemViewManager.createInMemoryFileSystemView(engineContext,
-                metaClient, HoodieInputFormatUtils.buildMetadataConfig(getConf()));
+            fsView = hoodieTableFileSystemViewCache.computeIfAbsent(baseDir.toString(), key ->
+                FileSystemViewManager.createInMemoryFileSystemView(engineContext,
+                    finalMetaClient, HoodieInputFormatUtils.buildMetadataConfig(getConf()))
+            );
           }
           String partition = FSUtils.getRelativePartitionPath(new Path(metaClient.getBasePath()), folder);
           List<HoodieBaseFile> latestFiles = fsView.getLatestBaseFiles(partition).collect(Collectors.toList());
@@ -222,10 +234,6 @@ public class HoodieROTablePathFilter implements Configurable, PathFilter, Serial
           nonHoodiePathCache.add(folder.toString());
           nonHoodiePathCache.add(baseDir.toString());
           return true;
-        } finally {
-          if (fsView != null) {
-            fsView.close();
-          }
         }
       } else {
         // files is at < 3 level depth in FS tree, can't be hoodie dataset
