@@ -23,6 +23,7 @@ import org.apache.hudi.config.HoodieWriteConfig
 import org.apache.hudi.exception.HoodieDuplicateKeyException
 import org.apache.hudi.keygen.ComplexKeyGenerator
 import org.apache.spark.sql.SaveMode
+import org.apache.spark.sql.functions.{expr, lit}
 
 import java.io.File
 
@@ -51,6 +52,8 @@ class TestInsertTable extends HoodieSparkSqlTestBase {
            | insert into $tableName
            | select 1 as id, 'a1' as name, 10 as price, 1000 as ts, '2021-01-05' as dt
         """.stripMargin)
+      spark.sql(s"select id, name, price, dt from $tableName where id = 1").show(false)
+
       checkAnswer(s"select id, name, price, ts, dt from $tableName")(
         Seq(1, "a1", 10.0, 1000, "2021-01-05")
       )
@@ -64,6 +67,31 @@ class TestInsertTable extends HoodieSparkSqlTestBase {
         Seq(1, "a1", 10.0, 1000, "2021-01-05"),
         Seq(2, "a2", 10.0, 1000, "2021-01-05")
       )
+
+
+      val df = spark.sql(s"select id, name, price, dt from $tableName where id = 1")
+      df.show(false)
+
+      /*
+      val dimDf = spark.range(1, 4)
+        .withColumn("name", lit("a1"))
+        .select("id", "name")
+
+      df.show(false)
+      dimDf.show(false)
+
+      spark.sql("CREATE TABLE dim (id int, name string) USING parquet")
+      dimDf.coalesce(1).write.mode("append").insertInto("dim")
+
+
+
+      val query =String.format("SELECT f.* FROM %s f JOIN dim d ON f.name = d.name AND d.id = 1 ORDER BY id", tableName)
+      val explainRes =spark.sql("EXPLAIN EXTENDED " + query).collectAsList()
+      println(explainRes.get(0).getString(0))
+
+      spark.sql(query).show(false)
+      spark.sql("DROP TABLE IF EXISTS dim")
+      */
     }
   }
 
