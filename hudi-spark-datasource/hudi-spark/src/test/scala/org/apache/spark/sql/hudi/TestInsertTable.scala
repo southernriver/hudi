@@ -33,6 +33,7 @@ class TestInsertTable extends HoodieSparkSqlTestBase {
     withTempDir { tmp =>
       val tableName = generateTableName
       // Create a partitioned table
+      println("spark.version:" + spark.version)
       spark.sql(
         s"""
            |create table $tableName (
@@ -52,8 +53,21 @@ class TestInsertTable extends HoodieSparkSqlTestBase {
            | insert into $tableName
            | select 1 as id, 'a1' as name, 10 as price, 1000 as ts, '2021-01-05' as dt
         """.stripMargin)
-      spark.sql(s"select id, name, price, dt from $tableName where id = 1").show(false)
 
+      spark.sql(
+        s"""
+           | insert into $tableName
+           | select 2 as id, 'a2' as name, 20 as price, 2000 as ts, '2022-01-05' as dt
+        """.stripMargin)
+
+
+//      spark.sql(s"select id, name, price, dt from $tableName where id = 1").show(false)
+      spark.sql(s"select * from $tableName where id = 1").show(false)
+
+      spark.sql(s"desc extended $tableName").show(false)
+      Thread.sleep(1000000)
+
+      /*
       checkAnswer(s"select id, name, price, ts, dt from $tableName")(
         Seq(1, "a1", 10.0, 1000, "2021-01-05")
       )
@@ -72,6 +86,7 @@ class TestInsertTable extends HoodieSparkSqlTestBase {
       val df = spark.sql(s"select id, name, price, dt from $tableName where id = 1")
       df.show(false)
 
+       */
       /*
       val dimDf = spark.range(1, 4)
         .withColumn("name", lit("a1"))

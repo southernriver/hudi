@@ -39,7 +39,7 @@ case class HoodieInternalV2Table(spark: SparkSession,
                                  catalogTable: Option[CatalogTable] = None,
                                  tableIdentifier: Option[String] = None,
                                  options: CaseInsensitiveStringMap = CaseInsensitiveStringMap.empty())
-  extends Table with SupportsWrite with V2TableWithV1Fallback {
+  extends Table with SupportsRead with SupportsWrite with V2TableWithV1Fallback {
 
   lazy val hoodieCatalogTable: HoodieCatalogTable = if (catalogTable.isDefined) {
     HoodieCatalogTable(spark, catalogTable.get)
@@ -83,6 +83,10 @@ case class HoodieInternalV2Table(spark: SparkSession,
     }.toArray
   }
 
+  override def newScanBuilder(caseInsensitiveStringMap: CaseInsensitiveStringMap): ScanBuilder = {
+    println("newScanBuilder:" + caseInsensitiveStringMap)
+    new HoodieBatchScanBuilder(caseInsensitiveStringMap, hoodieCatalogTable, spark)
+  }
 }
 
 private class HoodieV1WriteBuilder(writeOptions: CaseInsensitiveStringMap,
