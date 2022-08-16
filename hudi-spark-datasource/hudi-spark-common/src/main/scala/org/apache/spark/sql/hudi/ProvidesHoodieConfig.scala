@@ -37,10 +37,10 @@ import org.apache.spark.sql.hudi.HoodieSqlCommonUtils.{isEnableHive, withSparkCo
 import org.apache.spark.sql.hudi.command.{SqlKeyGenerator, ValidateDuplicateKeyPayload}
 import org.apache.spark.sql.internal.SQLConf
 import org.apache.spark.sql.types.StructType
+import org.apache.spark.sql.util.CaseInsensitiveStringMap
 
 import java.util
 import java.util.Locale
-
 import scala.collection.JavaConverters._
 
 trait ProvidesHoodieConfig extends Logging {

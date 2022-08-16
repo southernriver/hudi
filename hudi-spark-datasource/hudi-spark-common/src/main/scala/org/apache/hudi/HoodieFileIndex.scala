@@ -71,7 +71,7 @@ case class HoodieFileIndex(spark: SparkSession,
                            schemaSpec: Option[StructType],
                            options: Map[String, String],
                            @transient fileStatusCache: FileStatusCache = NoopCache)
-  extends SparkHoodieTableFileIndex(
+  extends SparkHoodieTableFileIndex (
     spark = spark,
     metaClient = metaClient,
     schemaSpec = schemaSpec,
@@ -82,6 +82,8 @@ case class HoodieFileIndex(spark: SparkSession,
   )
     with FileIndex
     with ColumnStatsIndexSupport {
+
+//  def this() = this(null, new HoodieTableMetaClient, None, Map.empty, NoopCache)
 
   override def rootPaths: Seq[Path] = queryPaths.asScala
 

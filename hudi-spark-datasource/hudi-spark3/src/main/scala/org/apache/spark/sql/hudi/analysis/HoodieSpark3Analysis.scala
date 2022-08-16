@@ -17,6 +17,7 @@
 
 package org.apache.spark.sql.hudi.analysis
 
+import org.apache.hudi.DataSourceWriteOptions.ENABLE_V2_READ
 import org.apache.hudi.common.table.HoodieTableMetaClient
 import org.apache.hudi.{DefaultSource, SparkAdapterSupport}
 import org.apache.spark.sql.catalyst.TableIdentifier
@@ -25,14 +26,15 @@ import org.apache.spark.sql.catalyst.expressions.{Alias, Attribute}
 import org.apache.spark.sql.catalyst.plans.logical._
 import org.apache.spark.sql.catalyst.rules.Rule
 import org.apache.spark.sql.connector.catalog.CatalogV2Implicits.IdentifierHelper
-import org.apache.spark.sql.execution.datasources.LogicalRelation
+import org.apache.spark.sql.execution.datasources.{HadoopFsRelation, LogicalRelation}
 import org.apache.spark.sql.execution.datasources.PreWriteCheck.failAnalysis
-import org.apache.spark.sql.execution.datasources.v2.{DataSourceV2Relation, V2SessionCatalog}
+import org.apache.spark.sql.execution.datasources.v2.{DataSourceV2Relation, ScanBuilderHolder, V2ScanRelationPushDown, V2SessionCatalog}
 import org.apache.spark.sql.hudi.{HoodieSqlCommonUtils, ProvidesHoodieConfig}
 import org.apache.spark.sql.hudi.HoodieSqlCommonUtils.{castIfNeeded, getTableLocation, removeMetaFields, tableExistsInPath}
 import org.apache.spark.sql.hudi.catalog.{HoodieCatalog, HoodieInternalV2Table}
 import org.apache.spark.sql.hudi.command.{AlterHoodieTableDropPartitionCommand, ShowHoodieTablePartitionsCommand, TruncateHoodieTableCommand}
 import org.apache.spark.sql.types.StructType
+import org.apache.spark.sql.util.CaseInsensitiveStringMap
 import org.apache.spark.sql.{AnalysisException, SQLContext, SparkSession}
 
 import scala.collection.JavaConverters.mapAsJavaMapConverter
@@ -44,8 +46,11 @@ import scala.collection.JavaConverters.mapAsJavaMapConverter
 case class HoodieSpark3Analysis(sparkSession: SparkSession) extends Rule[LogicalPlan]
   with SparkAdapterSupport with ProvidesHoodieConfig {
 
+  val supportV2ReadEnabled = sparkSession.conf
+    .getOption(ENABLE_V2_READ.key).getOrElse(ENABLE_V2_READ.defaultValue).toBoolean
+
   override def apply(plan: LogicalPlan): LogicalPlan = plan.resolveOperatorsDown {
-    case dsv2 @ DataSourceV2Relation(d: HoodieInternalV2Table, _, _, _, _) =>
+    case dsv2 @ DataSourceV2Relation(d: HoodieInternalV2Table, _, _, _, _) if !supportV2ReadEnabled =>
       val output = dsv2.output
       val catalogTable = if (d.catalogTable.isDefined) {
         Some(d.v1Table)
@@ -55,6 +60,7 @@ case class HoodieSpark3Analysis(sparkSession: SparkSession) extends Rule[Logical
       val relation = new DefaultSource().createRelation(new SQLContext(sparkSession),
         buildHoodieConfig(d.hoodieCatalogTable))
       LogicalRelation(relation, output, catalogTable, isStreaming = false)
+
     case a @ InsertIntoStatement(r: DataSourceV2Relation, partitionSpec, _, _, _, _) if a.query.resolved &&
       r.table.isInstanceOf[HoodieInternalV2Table] &&
       needsSchemaAdjustment(a.query, r.table.asInstanceOf[HoodieInternalV2Table], partitionSpec, r.schema) =>

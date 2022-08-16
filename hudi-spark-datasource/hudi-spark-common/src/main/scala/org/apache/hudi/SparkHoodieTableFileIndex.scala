@@ -56,7 +56,7 @@ class SparkHoodieTableFileIndex(spark: SparkSession,
                                 queryPaths: Seq[Path],
                                 specifiedQueryInstant: Option[String] = None,
                                 @transient fileStatusCache: FileStatusCache = NoopCache)
-  extends BaseHoodieTableFileIndex(
+  extends BaseHoodieTableFileIndex (
     new HoodieSparkEngineContext(new JavaSparkContext(spark.sparkContext)),
     metaClient,
     configProperties,
@@ -69,6 +69,9 @@ class SparkHoodieTableFileIndex(spark: SparkSession,
   )
     with SparkAdapterSupport
     with Logging {
+
+//  def this() = this(null, new HoodieTableMetaClient, None, new TypedProperties(),
+//    Seq.empty, None, NoopCache)
 
   /**
    * Get the schema of the table.

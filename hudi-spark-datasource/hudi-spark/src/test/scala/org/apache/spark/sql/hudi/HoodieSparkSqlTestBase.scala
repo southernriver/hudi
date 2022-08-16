@@ -51,6 +51,8 @@ class HoodieSparkSqlTestBase extends FunSuite with BeforeAndAfterAll {
     .config("hoodie.delete.shuffle.parallelism", "4")
     .config("spark.sql.warehouse.dir", sparkWareHouse.getCanonicalPath)
     .config("spark.sql.session.timeZone", "CTT")
+    .config("spark.executor.extraJavaOptions", "-Dsun.io.serialization.extendedDebugInfo=true")
+    .config("spark.driver.extraJavaOptions", "-Dsun.io.serialization.extendedDebugInfo=true")
     .config(sparkConf())
     .getOrCreate()
 

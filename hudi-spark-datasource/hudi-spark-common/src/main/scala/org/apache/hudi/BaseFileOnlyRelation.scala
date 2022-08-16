@@ -79,6 +79,7 @@ class BaseFileOnlyRelation(sqlContext: SQLContext,
                                     requiredSchema: HoodieTableSchema,
                                     filters: Array[Filter]): HoodieUnsafeRDD = {
 
+    println("BaseFileOnlyRelation.composeRDD")
     val baseFileReader = createBaseFileReader(
       spark = sparkSession,
       partitionSchema = partitionSchema,
@@ -95,6 +96,8 @@ class BaseFileOnlyRelation(sqlContext: SQLContext,
   }
 
   protected def collectFileSplits(partitionFilters: Seq[Expression], dataFilters: Seq[Expression]): Seq[HoodieBaseFileSplit] = {
+    println("BaseFileOnlyRelation.collectFileSplits")
+
     val partitions = listLatestBaseFiles(globPaths, partitionFilters, dataFilters)
     val fileSplits = partitions.values.toSeq
       .flatMap { files =>

@@ -23,6 +23,7 @@ import org.apache.hudi.config.HoodieWriteConfig
 import org.apache.hudi.exception.HoodieDuplicateKeyException
 import org.apache.hudi.keygen.ComplexKeyGenerator
 import org.apache.spark.sql.SaveMode
+import org.apache.spark.sql.functions.lit
 
 import java.io.File
 
@@ -32,6 +33,8 @@ class TestInsertTable extends HoodieSparkSqlTestBase {
     withTempDir { tmp =>
       val tableName = generateTableName
       // Create a partitioned table
+      println(spark.version)
+      spark.conf.set("hoodie.datasource.v2.read.enable", "true")
       spark.sql(
         s"""
            |create table $tableName (
@@ -41,7 +44,7 @@ class TestInsertTable extends HoodieSparkSqlTestBase {
            |  ts long,
            |  dt string
            |) using hudi
-           | tblproperties (primaryKey = 'id')
+           | tblproperties (primaryKey = 'id', type = 'cow')
            | partitioned by (dt)
            | location '${tmp.getCanonicalPath}'
        """.stripMargin)
@@ -51,25 +54,56 @@ class TestInsertTable extends HoodieSparkSqlTestBase {
            | insert into $tableName
            | select 1 as id, 'a1' as name, 10 as price, 1000 as ts, '2021-01-05' as dt
         """.stripMargin)
-      checkAnswer(s"select id, name, price, ts, dt from $tableName")(
-        Seq(1, "a1", 10.0, 1000, "2021-01-05")
-      )
-      // Insert into static partition
+
       spark.sql(
         s"""
-           | insert into $tableName partition(dt = '2021-01-05')
-           | select 2 as id, 'a2' as name, 10 as price, 1000 as ts
+           | insert into $tableName
+           | select 1 as id, 'a111' as name, 10 as price, 1000 as ts, '2021-01-06' as dt
         """.stripMargin)
-      checkAnswer(s"select id, name, price, ts, dt from $tableName")(
-        Seq(1, "a1", 10.0, 1000, "2021-01-05"),
-        Seq(2, "a2", 10.0, 1000, "2021-01-05")
-      )
+
+
+      spark.sql(
+        s"""
+           | insert into $tableName
+           | select 2 as id, 'a2' as name, 20 as price, 2000 as ts, '2021-02-05' as dt
+        """.stripMargin)
+
+      spark.sql(s"select id, name, dt from default.$tableName where id = 1 and dt = '2021-01-05'").show(false)
+      // Insert into static partition
+//      spark.sql(
+//        s"""
+//           | insert into $tableName partition(dt = '2021-01-05')
+//           | select 2 as id, 'a2' as name, 10 as price, 1000 as ts
+//        """.stripMargin)
+//      checkAnswer(s"select id, name, price, ts, dt from $tableName")(
+//        Seq(1, "a1", 10.0, 1000, "2021-01-05"),
+//        Seq(2, "a2", 10.0, 1000, "2021-01-05")
+//      )
+
+      val dimDf = spark.range(1, 4)
+        .withColumn("name", lit("a1"))
+        .select("id", "name")
+
+      dimDf.show(false)
+
+      spark.sql("CREATE TABLE dim (id int, name string) USING parquet")
+      dimDf.coalesce(1).write.mode("append").insertInto("dim")
+
+
+
+      val query =String.format("SELECT f.* FROM %s f JOIN dim d ON f.name = d.name AND d.id = 1 ORDER BY id", tableName)
+      val explainRes =spark.sql("EXPLAIN EXTENDED " + query).collectAsList()
+      println(explainRes.get(0).getString(0))
+
+      spark.sql(query).show(false)
+      spark.sql("DROP TABLE IF EXISTS dim")
     }
   }
 
   test("Test Insert Into None Partitioned Table") {
     withTempDir { tmp =>
       val tableName = generateTableName
+      spark.conf.set("hoodie.datasource.v2.read.enable", "true")
       spark.sql(s"set hoodie.sql.insert.mode=strict")
       // Create none partitioned cow table
       spark.sql(
@@ -96,6 +130,7 @@ class TestInsertTable extends HoodieSparkSqlTestBase {
         Seq(1, "a1", 10.0, 1000),
         Seq(2, "a2", 12.0, 1000)
       )
+
 
       assertThrows[HoodieDuplicateKeyException] {
         try {

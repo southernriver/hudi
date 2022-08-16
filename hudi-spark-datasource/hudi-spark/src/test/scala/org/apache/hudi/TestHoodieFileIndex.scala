@@ -49,6 +49,7 @@ import org.junit.jupiter.api.{BeforeEach, Test}
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.{Arguments, CsvSource, MethodSource, ValueSource}
 
+import java.io.{FileInputStream, FileOutputStream, ObjectInputStream, ObjectOutputStream}
 import java.util.Properties
 import scala.collection.JavaConversions._
 import scala.collection.JavaConverters._
@@ -125,6 +126,24 @@ class TestHoodieFileIndex extends HoodieClientTestBase {
     metaClient = HoodieTableMetaClient.reload(metaClient)
     val fileIndex = HoodieFileIndex(spark, metaClient, None, queryOpts)
     assertEquals("partition", fileIndex.partitionSchema.fields.map(_.name).mkString(","))
+
+
+    System.out.println("Serializing Object")
+    val fis = new FileOutputStream("Test.ser")
+    val ois = new ObjectOutputStream(fis)
+    ois.writeObject(fileIndex)
+
+    try {
+      val fis = new FileInputStream("Test.ser")
+      val ois = new ObjectInputStream(fis)
+      System.out.println("Deserializing Object")
+      val o1 = ois.readObject
+      val s2 = o1.asInstanceOf[HoodieFileIndex]
+    } catch {
+      case e1: Exception =>
+        e1.printStackTrace()
+    }
+
   }
 
   @ParameterizedTest

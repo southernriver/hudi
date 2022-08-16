@@ -19,6 +19,7 @@
 package org.apache.spark.sql.hudi.catalog
 
 import org.apache.hadoop.fs.Path
+import org.apache.hudi.common.table.{HoodieTableConfig, HoodieTableMetaClient}
 import org.apache.hudi.exception.HoodieException
 import org.apache.hudi.sql.InsertMode
 import org.apache.hudi.sync.common.util.ConfigUtils
@@ -110,7 +111,8 @@ class HoodieCatalog extends DelegatingCatalogExtension
           path = catalogTable.location.toString,
           catalogTable = Some(catalogTable),
           tableIdentifier = Some(ident.toString))
-      case o => o
+      case o => o;
+
     }
   }
 

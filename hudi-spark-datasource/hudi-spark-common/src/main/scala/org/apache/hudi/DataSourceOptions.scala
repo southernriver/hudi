@@ -377,6 +377,11 @@ object DataSourceWriteOptions {
     .defaultValue("false")
     .withDocumentation("If set to true, filters out all duplicate records from incoming dataframe, during insert operations.")
 
+  val ENABLE_V2_READ: ConfigProperty[String] = ConfigProperty
+    .key("hoodie.datasource.v2.read.enable")
+    .defaultValue("false")
+    .withDocumentation("If set to true, the query statement will use v2 to read")
+
   val PARTITIONS_TO_DELETE: ConfigProperty[String] = ConfigProperty
     .key("hoodie.datasource.write.partitions.to.delete")
     .noDefaultValue()
