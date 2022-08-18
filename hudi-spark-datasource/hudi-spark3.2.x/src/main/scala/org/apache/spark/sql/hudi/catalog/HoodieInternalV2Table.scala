@@ -21,24 +21,26 @@ import org.apache.hudi.common.table.{HoodieTableConfig, HoodieTableMetaClient}
 import org.apache.spark.sql.catalyst.TableIdentifier
 import org.apache.spark.sql.catalyst.catalog.{CatalogTable, HoodieCatalogTable}
 import org.apache.spark.sql.connector.catalog.TableCapability._
-import org.apache.spark.sql.connector.catalog.{SupportsWrite, Table, TableCapability, V1Table, V2TableWithV1Fallback}
+import org.apache.spark.sql.connector.catalog.{SupportsRead, SupportsWrite, Table, TableCapability, V1Table, V2TableWithV1Fallback}
 import org.apache.spark.sql.connector.expressions.{FieldReference, IdentityTransform, Transform}
+import org.apache.spark.sql.connector.read.ScanBuilder
 import org.apache.spark.sql.connector.write._
 import org.apache.spark.sql.hudi.ProvidesHoodieConfig
+import org.apache.spark.sql.hudi.source.HoodieBatchScanBuilder
 import org.apache.spark.sql.sources.{Filter, InsertableRelation}
 import org.apache.spark.sql.types.StructType
 import org.apache.spark.sql.util.CaseInsensitiveStringMap
 import org.apache.spark.sql.{DataFrame, SaveMode, SparkSession}
 
 import java.util
-import scala.collection.JavaConverters.{mapAsJavaMapConverter, setAsJavaSetConverter}
+import scala.collection.JavaConverters._
 
 case class HoodieInternalV2Table(spark: SparkSession,
                                  path: String,
                                  catalogTable: Option[CatalogTable] = None,
                                  tableIdentifier: Option[String] = None,
                                  options: CaseInsensitiveStringMap = CaseInsensitiveStringMap.empty())
-  extends Table with SupportsWrite with V2TableWithV1Fallback {
+  extends Table with SupportsWrite  with SupportsRead with V2TableWithV1Fallback  with ProvidesHoodieConfig {
 
   lazy val hoodieCatalogTable: HoodieCatalogTable = if (catalogTable.isDefined) {
     HoodieCatalogTable(spark, catalogTable.get)
@@ -82,6 +84,15 @@ case class HoodieInternalV2Table(spark: SparkSession,
     }.toArray
   }
 
+  override def newScanBuilder(caseInsensitiveStringMap: CaseInsensitiveStringMap): ScanBuilder = {
+    val scanOptions = buildHoodieScanConfig(caseInsensitiveStringMap, hoodieCatalogTable)
+    new HoodieBatchScanBuilder(spark, hoodieCatalogTable, scanOptions)
+  }
+
+  private def buildHoodieScanConfig(caseInsensitiveStringMap: CaseInsensitiveStringMap,
+                                    hoodieCatalogTable: HoodieCatalogTable): Map[String, String] = {
+    buildHoodieConfig(hoodieCatalogTable) ++ caseInsensitiveStringMap.asCaseSensitiveMap().asScala
+  }
 }
 
 private class HoodieV1WriteBuilder(writeOptions: CaseInsensitiveStringMap,
