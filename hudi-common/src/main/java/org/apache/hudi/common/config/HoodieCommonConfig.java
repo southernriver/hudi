@@ -36,6 +36,11 @@ public class HoodieCommonConfig extends HoodieConfig {
       .defaultValue(false)
       .withDocumentation("Enables support for Schema Evolution feature");
 
+  public static final ConfigProperty<Boolean> READ_SUPPORT_V2_ENABLE = ConfigProperty
+      .key("hoodie.datasource.v2.read.enable")
+      .defaultValue(false)
+      .withDocumentation("If set to true, the query statement will use v2 to read");
+
   public static final ConfigProperty<Boolean> RECONCILE_SCHEMA = ConfigProperty
       .key("hoodie.datasource.write.reconcile.schema")
       .defaultValue(false)
