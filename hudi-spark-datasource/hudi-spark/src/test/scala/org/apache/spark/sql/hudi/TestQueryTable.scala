@@ -17,6 +17,7 @@
 
 package org.apache.spark.sql.hudi
 
+import org.apache.hudi.HoodieSparkUtils
 import org.apache.hudi.exception.{HoodieDuplicateKeyException, HoodieException}
 import org.apache.spark.sql.functions.lit
 
@@ -218,16 +219,18 @@ class TestQueryTable extends HoodieSparkSqlTestBase {
          | partitioned by (dt)
        """.stripMargin)
 
-    assertThrows[HoodieException] {
-      try {
-        spark.sql(s"select * from $tableName").show()
-      } catch {
-        case e: Exception =>
-          var root: Throwable = e
-          while (root.getCause != null) {
-            root = root.getCause
-          }
-          throw root
+    if (HoodieSparkUtils.isSpark3_2) {
+      assertThrows[HoodieException] {
+        try {
+          spark.sql(s"select * from $tableName").show()
+        } catch {
+          case e: Exception =>
+            var root: Throwable = e
+            while (root.getCause != null) {
+              root = root.getCause
+            }
+            throw root
+        }
       }
     }
     spark.conf.set("hoodie.datasource.v2.read.enable", "false")
