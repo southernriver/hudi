@@ -25,7 +25,6 @@ import org.apache.spark.SparkConf
 import org.apache.spark.sql.catalyst.util.DateTimeUtils
 import org.apache.spark.sql.{Row, SparkSession}
 import org.apache.spark.util.Utils
-import org.scalactic.source
 import org.scalatest.{BeforeAndAfterAll, FunSuite, Tag}
 
 import java.io.File
@@ -74,7 +73,7 @@ class HoodieSparkSqlTestBase extends FunSuite with BeforeAndAfterAll {
     }
   }
 
-  override protected def test(testName: String, testTags: Tag*)(testFun: => Any /* Assertion */)(implicit pos: source.Position): Unit = {
+  override protected def test(testName: String, testTags: Tag*)(testFun: => Any /* Assertion */)(implicit pos: org.scalactic.source.Position): Unit = {
     super.test(testName, testTags: _*)(
       try {
         testFun

@@ -330,14 +330,11 @@
       <artifactId>junit-jupiter-params</artifactId>
       <scope>test</scope>
     </dependency>
+    <dependency>
+      <groupId>org.scalatest</groupId>
+      <artifactId>scalatest_${scala.binary.version}</artifactId>
+      <version>${scalatest.version}</version>
+      <scope>test</scope>
+    </dependency>
   </dependencies>
-
-  <dependency>
-    <groupId>org.scalatest</groupId>
-    <artifactId>scalatest_${scala.binary.version}</artifactId>
-    <version>${scalatest.version}</version>
-    <scope>test</scope>
-  </dependency>
-
-
 </project> 
