@@ -145,6 +145,8 @@ object DataSourceReadOptions {
 
   val SCHEMA_EVOLUTION_ENABLED: ConfigProperty[Boolean] = HoodieCommonConfig.SCHEMA_EVOLUTION_ENABLE
 
+  val READ_SUPPORT_V2_ENABLE: ConfigProperty[Boolean] = HoodieCommonConfig.READ_SUPPORT_V2_ENABLE
+
   /** @deprecated Use {@link QUERY_TYPE} and its methods instead */
   @Deprecated
   val QUERY_TYPE_OPT_KEY = QUERY_TYPE.key()
@@ -369,11 +371,6 @@ object DataSourceWriteOptions {
     .key("hoodie.datasource.write.insert.drop.duplicates")
     .defaultValue("false")
     .withDocumentation("If set to true, filters out all duplicate records from incoming dataframe, during insert operations.")
-
-  val ENABLE_V2_READ: ConfigProperty[String] = ConfigProperty
-    .key("hoodie.datasource.v2.read.enable")
-    .defaultValue("false")
-    .withDocumentation("If set to true, the query statement will use v2 to read")
 
   val PARTITIONS_TO_DELETE: ConfigProperty[String] = ConfigProperty
     .key("hoodie.datasource.write.partitions.to.delete")
