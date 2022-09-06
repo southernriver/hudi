@@ -78,4 +78,8 @@ abstract class HoodieSpark3CatalystPlanUtils extends HoodieCatalystPlansUtils {
                                 query: LogicalPlan, overwrite: Boolean, ifPartitionNotExists: Boolean): LogicalPlan = {
     ReflectUtil.createInsertInto(table, partition, Seq.empty[String], query, overwrite, ifPartitionNotExists)
   }
+
+  override def createLike(left: Expression, right: Expression): Expression = {
+    new Like(left, right)
+  }
 }
