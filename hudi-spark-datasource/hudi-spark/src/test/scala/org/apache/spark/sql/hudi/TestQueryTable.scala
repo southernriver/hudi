@@ -23,6 +23,55 @@ import org.apache.spark.sql.functions.lit
 
 class TestQueryTable extends HoodieSparkSqlTestBase {
 
+  test("Test Query Partitioned PushDown") {
+    withTempDir { tmp =>
+      val tableName = generateTableName
+      // Create a partitioned table
+      spark.sql(
+        s"""
+           |create table $tableName (
+           |  id int,
+           |  name string,
+           |  price double,
+           |  ts long,
+           |  dt string
+           |) using hudi
+           | tblproperties (primaryKey = 'id')
+           | partitioned by (dt)
+           | location '${tmp.getCanonicalPath}/$tableName'
+       """.stripMargin)
+      //  Insert overwrite dynamic partition
+      spark.sql(
+        s"""
+           | insert overwrite table $tableName
+           | select 1 as id, 'a1' as name, 10 as price, 1000 as ts, '2021-01-05' as dt
+        """.stripMargin)
+
+      //  Insert overwrite dynamic partition
+      spark.sql(
+        s"""
+           | insert overwrite table $tableName
+           | select 2 as id, 'a2' as name, 10 as price, 1000 as ts, '2021-01-06' as dt
+        """.stripMargin)
+
+      // Insert overwrite static partition
+      spark.sql(
+        s"""
+           | insert into table $tableName partition(dt = '2021-01-05')
+           | select * from (select 2 , 'a2', 12, 1000) limit 10
+        """.stripMargin)
+
+      spark.sql(s"set hoodie.datasource.v2.read.enable=true")
+
+      val query = s"select id, name, price, ts, dt from $tableName " +
+        s"where dt ='2021-01-05'"
+//      spark.sql(query).explain()
+      println("++++result++++")
+      spark.sql(query).show(false)
+    }
+
+  }
+
   test("Test Query None Partitioned Table") {
     withTempDir { tmp =>
       val tableName = generateTableName
