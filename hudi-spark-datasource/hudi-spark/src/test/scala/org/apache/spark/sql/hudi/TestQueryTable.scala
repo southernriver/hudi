@@ -63,9 +63,9 @@ class TestQueryTable extends HoodieSparkSqlTestBase {
 
       spark.sql(s"set hoodie.datasource.v2.read.enable=true")
 
-      val query = s"select id, name, price, ts, dt from $tableName " +
-        s"where dt ='2021-01-05'"
-//      spark.sql(query).explain()
+      val query = s"select  name from $tableName " +
+        s"where dt ='2021-01-05' and id = 1"
+      spark.sql(query).explain()
       println("++++result++++")
       spark.sql(query).show(false)
     }

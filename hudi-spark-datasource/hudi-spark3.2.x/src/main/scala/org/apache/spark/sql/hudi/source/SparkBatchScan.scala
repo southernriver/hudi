@@ -38,8 +38,9 @@ import org.apache.spark.TaskContext
 import org.apache.spark.broadcast.Broadcast
 import org.apache.spark.sql.SparkSession
 import org.apache.spark.sql.catalyst.InternalRow
+import org.apache.spark.sql.catalyst.catalog.HoodieCatalogTable
 import org.apache.spark.sql.catalyst.util.DateTimeUtils
-import org.apache.spark.sql.connector.read.{Batch, InputPartition, PartitionReader, PartitionReaderFactory, Scan}
+import org.apache.spark.sql.connector.read.{Batch, InputPartition, PartitionReader, PartitionReaderFactory, Scan, SupportsRuntimeFiltering}
 import org.apache.spark.sql.execution.PartitionedFileUtil
 import org.apache.spark.sql.execution.datasources.parquet.Spark32HoodieParquetFileFormat._
 import org.apache.spark.sql.execution.datasources.parquet.{ParquetFilters, ParquetFooterReader, ParquetOptions, ParquetReadSupport, ParquetWriteSupport, VectorizedParquetRecordReader}
@@ -54,6 +55,7 @@ import org.apache.spark.util.SerializableConfiguration
 import java.net.URI
 
 case class SparkBatchScan(spark: SparkSession,
+                          hoodieTableName: String,
                           selectedPartitions: Seq[PartitionDirectory],
                           tableSchema: StructType,
                           partitionSchema: StructType,
@@ -351,4 +353,9 @@ case class SparkBatchScan(spark: SparkSession,
   override def readSchema(): StructType = requiredSchema
 
   override def toBatch: Batch = this
+
+  override def description(): String = {
+    hoodieTableName + ", PushedFilters: " + filters.mkString("[", ", ", "], ")
+  }
+
 }
