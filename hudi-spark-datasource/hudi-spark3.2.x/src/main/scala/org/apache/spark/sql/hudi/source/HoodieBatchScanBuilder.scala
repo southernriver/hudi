@@ -22,10 +22,10 @@ import org.apache.hudi.exception.HoodieException
 import org.apache.hudi.{DataSourceOptionsHelper, DefaultSource, HoodieSparkUtils}
 import org.apache.spark.sql.{SQLContext, SparkSession}
 import org.apache.spark.sql.catalyst.catalog.HoodieCatalogTable
-import org.apache.spark.sql.catalyst.expressions.Expression
+import org.apache.spark.sql.catalyst.expressions.{Expression, ExpressionSet}
 import org.apache.spark.sql.connector.expressions.NamedReference
 import org.apache.spark.sql.connector.read.{Scan, ScanBuilder, SupportsPushDownFilters, SupportsPushDownRequiredColumns, SupportsRuntimeFiltering}
-import org.apache.spark.sql.execution.datasources.HadoopFsRelation
+import org.apache.spark.sql.execution.datasources.{HadoopFsRelation, PartitioningUtils}
 import org.apache.spark.sql.sources.Filter
 import org.apache.spark.sql.types.StructType
 
@@ -35,7 +35,7 @@ import java.util.List
 class HoodieBatchScanBuilder(spark: SparkSession,
                              hoodieCatalogTable: HoodieCatalogTable,
                              options: Map[String, String])
-    extends ScanBuilder with SupportsPushDownFilters with SupportsPushDownRequiredColumns with SupportsRuntimeFiltering {
+    extends ScanBuilder with SupportsPushDownFilters with SupportsPushDownRequiredColumns {
   @transient lazy val hadoopConf = {
     // Hadoop Configurations are case sensitive.
     spark.sessionState.newHadoopConfWithOptions(options)
@@ -45,18 +45,15 @@ class HoodieBatchScanBuilder(spark: SparkSession,
 
   private var filterArrays: Array[Filter] = Array.empty
 
-
-  // TODO generate exepected schema
-  private val expectedSchema = hoodieCatalogTable.tableSchema
+  private var expectedSchema: StructType= hoodieCatalogTable.tableSchema
 
   override def build(): Scan = {
     val relation = new DefaultSource().createRelation(new SQLContext(spark), options)
     relation match {
       case HadoopFsRelation(location, partitionSchema, dataSchema, _, _, options) =>
-        // TODO support SupportsRuntimeFiltering && PartitonPushDown
         val selectedPartitions = location.listFiles(Seq.empty, filterExpressions.toList)
-        SparkBatchScan(spark, hoodieCatalogTable.catalogTableName, selectedPartitions, dataSchema, partitionSchema,
-            expectedSchema, filterArrays, options, hadoopConf)
+        SparkScan(spark, hoodieCatalogTable.catalogTableName, selectedPartitions, dataSchema, partitionSchema,
+          expectedSchema, filterArrays, options, hadoopConf)
       case _ =>
         val isBootstrappedTable = hoodieCatalogTable.metaClient.getTableConfig.getBootstrapBasePath.isPresent
         val tableType = hoodieCatalogTable.metaClient.getTableType
@@ -78,16 +75,6 @@ class HoodieBatchScanBuilder(spark: SparkSession,
   }
 
   override def pruneColumns(requiredSchema: StructType): Unit = {
-    // TODO support prune columns.
-
-
+    expectedSchema = requiredSchema
   }
-
-  override def filterAttributes(): Array[NamedReference] = ???
-
-  override def filter(filters: Array[Filter]): Unit = {
-
-  }
-
-  override def readSchema(): StructType = ???
 }

@@ -1,27 +1,10 @@
-/*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
- *
- *    http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
 package org.apache.spark.sql.hudi.source
 
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.Path
 import org.apache.hadoop.mapred.FileSplit
-import org.apache.hadoop.mapreduce.{JobID, RecordReader, TaskAttemptID, TaskID, TaskType}
 import org.apache.hadoop.mapreduce.task.TaskAttemptContextImpl
+import org.apache.hadoop.mapreduce.{JobID, RecordReader, TaskAttemptID, TaskID, TaskType}
 import org.apache.hudi.HoodieSparkUtils
 import org.apache.hudi.client.utils.SparkInternalSchemaConverter
 import org.apache.hudi.common.fs.FSUtils
@@ -38,13 +21,11 @@ import org.apache.spark.TaskContext
 import org.apache.spark.broadcast.Broadcast
 import org.apache.spark.sql.SparkSession
 import org.apache.spark.sql.catalyst.InternalRow
-import org.apache.spark.sql.catalyst.catalog.HoodieCatalogTable
 import org.apache.spark.sql.catalyst.util.DateTimeUtils
-import org.apache.spark.sql.connector.read.{Batch, InputPartition, PartitionReader, PartitionReaderFactory, Scan, SupportsRuntimeFiltering}
+import org.apache.spark.sql.connector.read.{Batch, InputPartition, PartitionReader, PartitionReaderFactory}
 import org.apache.spark.sql.execution.PartitionedFileUtil
-import org.apache.spark.sql.execution.datasources.parquet.Spark32HoodieParquetFileFormat._
-import org.apache.spark.sql.execution.datasources.parquet.{ParquetFilters, ParquetFooterReader, ParquetOptions, ParquetReadSupport, ParquetWriteSupport, VectorizedParquetRecordReader}
-import org.apache.spark.sql.execution.datasources.parquet.{Spark32DataSourceUtils, Spark32HoodieVectorizedParquetRecordReader}
+import org.apache.spark.sql.execution.datasources.parquet.{ParquetFilters, ParquetFooterReader, ParquetOptions, ParquetReadSupport, ParquetWriteSupport, Spark32DataSourceUtils, Spark32HoodieVectorizedParquetRecordReader, VectorizedParquetRecordReader}
+import org.apache.spark.sql.execution.datasources.parquet.Spark32HoodieParquetFileFormat.{createParquetFilters, createParquetReadSupport, createVectorizedParquetRecordReader, pruneInternalSchema, rebuildFilterFromParquet}
 import org.apache.spark.sql.execution.datasources.v2.{FilePartitionReaderFactory, PartitionReaderWithPartitionValues}
 import org.apache.spark.sql.execution.datasources.{DataSourceUtils, FilePartition, PartitionDirectory, PartitionedFile}
 import org.apache.spark.sql.internal.SQLConf
@@ -54,17 +35,16 @@ import org.apache.spark.util.SerializableConfiguration
 
 import java.net.URI
 
-case class SparkBatchScan(spark: SparkSession,
-                          hoodieTableName: String,
-                          selectedPartitions: Seq[PartitionDirectory],
-                          tableSchema: StructType,
-                          partitionSchema: StructType,
-                          requiredSchema: StructType,
-                          filters: Seq[Filter],
-                          options: Map[String, String],
-                          @transient hadoopConf: Configuration) extends Batch with Scan {
+class SparkBatch(spark: SparkSession,
+                 selectedPartitions: Seq[PartitionDirectory],
+                 partitionSchema: StructType,
+                 requiredSchema: StructType,
+                 filters: Seq[Filter],
+                 options: Map[String, String],
+                 @transient hadoopConf: Configuration) extends Batch with Serializable {
 
   override def planInputPartitions(): Array[InputPartition] = {
+    // TODO support more accurate task planning.
     val maxSplitBytes = FilePartition.maxSplitBytes(spark, selectedPartitions)
     val splitFiles = selectedPartitions.flatMap { partition =>
       partition.files.flatMap { file =>
@@ -80,6 +60,7 @@ case class SparkBatchScan(spark: SparkSession,
       }.toArray.sortBy(_.length)(implicitly[Ordering[Long]].reverse)
     }
     FilePartition.getFilePartitions(spark, splitFiles, maxSplitBytes).toArray
+
   }
 
   override def createReaderFactory(): PartitionReaderFactory = {
@@ -120,17 +101,17 @@ case class SparkBatchScan(spark: SparkSession,
     // TODO: if you move this into the closure it reverts to the default values.
     // If true, enable using the custom RecordReader for parquet. This only works for
     // a subset of the types (no complex types).
-    val resultSchema = StructType(partitionSchema.fields ++ requiredSchema.fields)
-    val enableOffHeapColumnVector = sqlConf.offHeapColumnVectorEnabled
+    val resultSchema: StructType = StructType(partitionSchema.fields ++ requiredSchema.fields)
+    val enableOffHeapColumnVector: Boolean = sqlConf.offHeapColumnVectorEnabled
     val enableVectorizedReader: Boolean =
       sqlConf.parquetVectorizedReaderEnabled &&
         resultSchema.forall(_.dataType.isInstanceOf[AtomicType])
     val enableRecordFilter: Boolean = sqlConf.parquetRecordFilterEnabled
     val timestampConversion: Boolean = sqlConf.isParquetINT96TimestampConversion
-    val capacity = sqlConf.parquetVectorizedReaderBatchSize
+    val capacity: Int = sqlConf.parquetVectorizedReaderBatchSize
     val enableParquetFilterPushDown: Boolean = sqlConf.parquetFilterPushDown
     // Whole stage codegen (PhysicalRDD) is able to deal with batches directly
-    val pushDownDate = sqlConf.parquetFilterPushDownDate
+    val pushDownDate: Boolean = sqlConf.parquetFilterPushDownDate
     val pushDownTimestamp = sqlConf.parquetFilterPushDownTimestamp
     val pushDownDecimal = sqlConf.parquetFilterPushDownDecimal
     val pushDownStringStartWith = sqlConf.parquetFilterPushDownStringStartWith
@@ -151,7 +132,7 @@ case class SparkBatchScan(spark: SparkSession,
         override def close(): Unit = reader.close()
       }
 
-      new PartitionReaderWithPartitionValues(fileReader, readSchema(),
+      new PartitionReaderWithPartitionValues(fileReader, requiredSchema,
         partitionSchema, partitionedFile.partitionValues)
     }
 
@@ -350,12 +331,4 @@ case class SparkBatchScan(spark: SparkSession,
       }
     }
   }
-  override def readSchema(): StructType = requiredSchema
-
-  override def toBatch: Batch = this
-
-  override def description(): String = {
-    hoodieTableName + ", PushedFilters: " + filters.mkString("[", ", ", "], ")
-  }
-
 }

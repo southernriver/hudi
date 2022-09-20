@@ -17,13 +17,14 @@
 
 package org.apache.spark.sql.hudi
 
+import org.apache.commons.lang3.StringUtils
 import org.apache.hudi.HoodieSparkUtils
 import org.apache.hudi.exception.{HoodieDuplicateKeyException, HoodieException}
 import org.apache.spark.sql.functions.lit
 
 class TestQueryTable extends HoodieSparkSqlTestBase {
 
-  test("Test Query Partitioned PushDown") {
+  test("Test PruneColumns") {
     withTempDir { tmp =>
       val tableName = generateTableName
       // Create a partitioned table
@@ -63,13 +64,78 @@ class TestQueryTable extends HoodieSparkSqlTestBase {
 
       spark.sql(s"set hoodie.datasource.v2.read.enable=true")
 
-      val query = s"select  name from $tableName " +
+      val query = s"select id, name from $tableName " +
         s"where dt ='2021-01-05' and id = 1"
-      spark.sql(query).explain()
-      println("++++result++++")
-      spark.sql(query).show(false)
+
+      spark.sql(query).explain(true)
+
+      checkAnswer(query)(
+        Seq(1, "a1")
+      )
     }
 
+  }
+
+  test("Test RuntimeFiltering") {
+    withTempDir { tmp =>
+      val tableName = generateTableName
+      // Create a partitioned table
+      println(spark.version)
+      spark.sql(
+        s"""
+           |create table $tableName (
+           |  id int,
+           |  name string,
+           |  price double,
+           |  ts long,
+           |  dt string
+           |) using hudi
+           | tblproperties (primaryKey = 'id', type = 'cow')
+           | partitioned by (name)
+           | location '${tmp.getCanonicalPath}'
+       """.stripMargin)
+      // Insert into dynamic partition
+      spark.sql(
+        s"""
+           | insert into $tableName
+           | select 1 as id, 'a1' as name, 10 as price, 1000 as ts, '2021-01-05' as dt
+        """.stripMargin)
+
+      spark.sql(
+        s"""
+           | insert into $tableName
+           | select 1 as id, 'a111' as name, 10 as price, 1000 as ts, '2021-01-06' as dt
+        """.stripMargin)
+
+
+      spark.sql(
+        s"""
+           | insert into $tableName
+           | select 2 as id, 'a2' as name, 20 as price, 2000 as ts, '2021-02-05' as dt
+        """.stripMargin)
+
+      val dimDf = spark.range(1, 4)
+        .withColumn("name", lit("a1"))
+        .select("id", "name")
+
+      dimDf.show(false)
+
+      spark.sql("CREATE TABLE dim (id int, name string) USING parquet")
+      dimDf.coalesce(1).write.mode("append").insertInto("dim")
+
+
+      spark.sql(s"set hoodie.datasource.v2.read.enable=true")
+
+      val query =String.format("SELECT f.id, f.price, f.ts, f.dt, f.name FROM %s f JOIN dim d ON f.name = d.name AND d.id = 1 ORDER BY id", tableName)
+      val output = spark.sql("EXPLAIN EXTENDED " + query).collectAsList()
+      val actualFilterCount = StringUtils.countMatches(output.get(0).getString(0), "dynamicpruningexpression")
+      assertResult(actualFilterCount)(1)
+      checkAnswer(query)(
+        Seq(1, 10.0, 1000, "2021-01-05", "a1")
+      )
+
+      spark.sql("DROP TABLE IF EXISTS dim")
+    }
   }
 
   test("Test Query None Partitioned Table") {
