@@ -131,12 +131,16 @@ class TestQueryTable extends HoodieSparkSqlTestBase {
       val query =String.format("SELECT f.id, f.price, f.ts, f.dt, f.name FROM %s f JOIN dim d ON f.name = d.name AND d.id = 1 ORDER BY id", tableName)
       val output = spark.sql("EXPLAIN EXTENDED " + query).collectAsList()
       val actualFilterCount = StringUtils.countMatches(output.get(0).getString(0), "dynamicpruningexpression")
-      assertResult(actualFilterCount)(if (HoodieSparkUtils.isSpark3_2) 1 else 0)
       checkAnswer(query)(
         Seq(1, 10.0, 1000, "2021-01-05", "a1")
       )
 
+      if (HoodieSparkUtils.isSpark3_2) {
+        assertResult(actualFilterCount)(1)
+      }
+
       spark.sql("DROP TABLE IF EXISTS dim")
+      spark.sql(s"set hoodie.datasource.v2.read.enable=false")
     }
   }
 
