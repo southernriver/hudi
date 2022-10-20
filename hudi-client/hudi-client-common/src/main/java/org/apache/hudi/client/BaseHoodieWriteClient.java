@@ -970,6 +970,7 @@ public abstract class BaseHoodieWriteClient<T extends HoodieRecordPayload, I, K,
    * Completes a new commit time for a write operation (insert/update/delete) with specified action.
    */
   private void startCommitWithTime(String instantTime, String actionType, HoodieTableMetaClient metaClient) {
+    LOG.info(String.format("Clean failed writes before start commit %s with %s", instantTime, actionType));
     CleanerUtils.rollbackFailedWrites(config.getFailedWritesCleanPolicy(),
         HoodieTimeline.COMMIT_ACTION, () -> rollbackFailedWrites());
     startCommit(instantTime, actionType, metaClient);

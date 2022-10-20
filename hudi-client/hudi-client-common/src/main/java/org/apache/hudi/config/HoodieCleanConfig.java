@@ -104,7 +104,7 @@ public class HoodieCleanConfig extends HoodieConfig {
 
   public static final ConfigProperty<String> FAILED_WRITES_CLEANER_POLICY = ConfigProperty
       .key("hoodie.cleaner.policy.failed.writes")
-      .defaultValue(HoodieFailedWritesCleaningPolicy.EAGER.name())
+      .defaultValue(HoodieFailedWritesCleaningPolicy.LAZY.name())
       .withInferFunction(cfg -> {
         Option<String> writeConcurrencyModeOpt = Option.ofNullable(cfg.getString(HoodieWriteConfig.WRITE_CONCURRENCY_MODE));
         if (!writeConcurrencyModeOpt.isPresent()

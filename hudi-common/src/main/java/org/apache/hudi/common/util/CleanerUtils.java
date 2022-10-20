@@ -133,6 +133,8 @@ public class CleanerUtils {
    */
   public static void rollbackFailedWrites(HoodieFailedWritesCleaningPolicy cleaningPolicy, String actionType,
                                           Functions.Function0<Boolean> rollbackFailedWritesFunc) {
+    LOG.info(String.format("Rollback failed writes for action: [%s] with cleanPolicy: [%s]", actionType, cleaningPolicy));
+    
     switch (actionType) {
       case HoodieTimeline.CLEAN_ACTION:
         if (cleaningPolicy.isEager()) {
