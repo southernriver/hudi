@@ -20,20 +20,21 @@ package org.apache.spark.sql.hudi.command.procedures
 import org.apache.hudi.DataSourceReadOptions.{QUERY_TYPE, QUERY_TYPE_SNAPSHOT_OPT_VAL}
 import org.apache.hudi.common.table.{HoodieTableMetaClient, TableSchemaResolver}
 import org.apache.hudi.common.util.ValidationUtils.checkArgument
-import org.apache.hudi.{AvroConversionUtils, HoodieFileIndex}
+import org.apache.hudi.{AvroConversionUtils, HoodieCLIUtils, HoodieFileIndex, HoodieSparkSqlWriter}
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql.HoodieCatalystExpressionUtils.{resolveExpr, splitPartitionAndDataPredicates}
-import org.apache.spark.sql.Row
 import org.apache.spark.sql.catalyst.expressions.PredicateHelper
 import org.apache.spark.sql.execution.datasources.FileStatusCache
+import org.apache.spark.sql.hudi.ProvidesHoodieConfig
 import org.apache.spark.sql.types._
+import org.apache.spark.sql.{Row, SaveMode}
 
 import java.util.function.Supplier
-import scala.collection.JavaConverters._
 
 class DropPartitionsProcedure extends BaseProcedure
   with ProcedureBuilder
   with PredicateHelper
+  with ProvidesHoodieConfig
   with Logging {
 
   private val PARAMETERS = Array[ProcedureParameter](
@@ -68,23 +69,23 @@ class DropPartitionsProcedure extends BaseProcedure
       case _ => ""
     }
 
-    val rows: java.util.List[Row] = new java.util.ArrayList[Row]()
-    var partitionPaths: java.util.List[String] = new java.util.ArrayList[String]()
+    // Set the cleaner policy to lazy.
+    spark.sql("set hoodie.cleaner.policy.failed.writes=LAZY")
+
+    val hoodieCatalogTable = HoodieCLIUtils.getHoodieCatalogTable(sparkSession, metaClient.getTableConfig.getTableName)
     if (selectedPartitions.nonEmpty) {
-      partitionPaths = selectedPartitions.split(",").toList.asJava
+      val parameters = buildHoodieDropPartitionsConfig(sparkSession, hoodieCatalogTable, selectedPartitions)
+      HoodieSparkSqlWriter.write(
+        sparkSession.sqlContext,
+        SaveMode.Append,
+        parameters,
+        sparkSession.emptyDataFrame)
       logInfo(s"Drop partitions : $selectedPartitions")
+      Seq(Row(true, selectedPartitions))
     } else {
       logInfo("No partition to drop")
+      Seq(Row(false, selectedPartitions))
     }
-
-    partitionPaths.asScala.foreach(part => {
-      val dropSql = s"ALTER TABLE ${metaClient.getTableConfig.getTableName} DROP PARTITION ($part)"
-      logInfo(s"dropSql: $dropSql")
-      spark.sql(dropSql)
-      rows.add(Row(true, part))
-    })
-
-    rows.stream().toArray().map(r => r.asInstanceOf[Row]).toList
   }
 
   override def build: Procedure = new DropPartitionsProcedure()
@@ -105,7 +106,7 @@ class DropPartitionsProcedure extends BaseProcedure
 
     // Get all partitions and prune partition by predicates
     val prunedPartitions = hoodieFileIndex.getPartitionPaths(partitionPredicates)
-    prunedPartitions.map(path => path.getPath.replaceAll("/", ",")).toSet.mkString(",")
+    prunedPartitions.map(path => path.getPath).toSet.mkString(",")
   }
 }
 

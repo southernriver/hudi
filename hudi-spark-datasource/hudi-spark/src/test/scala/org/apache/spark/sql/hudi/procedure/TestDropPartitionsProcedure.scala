@@ -59,7 +59,11 @@ class TestDropPartitionsProcedure extends HoodieSparkProcedureTestBase {
           resultA = spark.sql(s"call drop_partitions(table => '$tableName', predicate => 'ts <= 1001L')")
             .collect()
             .map(row => Seq(row.getBoolean(0), row.getString(1)))
-          assertResult(2)(resultA.length)
+          assertResult(1)(resultA.length)
+
+          assertResult(1) {
+            spark.sql(s"show partitions $tableName").collect().length
+          }
         }
       }
     }
