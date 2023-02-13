@@ -92,6 +92,7 @@ object HoodieProcedures {
       ,(DeleteRollbackInstantProcedure.NAME, DeleteRollbackInstantProcedure.builder)
       ,(DeleteFsFileProcedure.NAME, DeleteFsFileProcedure.builder)
       ,(DropPartitionsProcedure.NAME, DropPartitionsProcedure.builder)
+      ,(ArchiveCommitsProcedure.NAME, ArchiveCommitsProcedure.builder)
     )
   }
 }
