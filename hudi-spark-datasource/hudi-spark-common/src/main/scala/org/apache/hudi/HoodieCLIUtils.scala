@@ -45,12 +45,9 @@ object HoodieCLIUtils {
         conf + (DataSourceWriteOptions.TABLE_TYPE.key() -> metaClient.getTableType.name()))
     )
 
-    val db = Option(metaClient.getTableConfig.getDatabaseName)
-      .getOrElse(sparkSession.sessionState.catalog.getCurrentDatabase)
-
     val jsc = new JavaSparkContext(sparkSession.sparkContext)
     DataSourceUtils.createHoodieClient(jsc, schemaStr, basePath,
-      db, metaClient.getTableConfig.getTableName, finalParameters.asJava)
+      metaClient.getTableConfig.getDatabaseName, metaClient.getTableConfig.getTableName, finalParameters.asJava)
   }
 
   def extractPartitions(clusteringGroups: Seq[HoodieClusteringGroup]): String = {
