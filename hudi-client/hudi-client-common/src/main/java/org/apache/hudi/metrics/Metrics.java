@@ -43,7 +43,7 @@ public class Metrics {
   private MetricsReporter reporter;
   private final String commonMetricPrefix;
 
-  private Metrics(HoodieWriteConfig metricConfig) {
+  public Metrics(HoodieWriteConfig metricConfig) {
     registry = new MetricRegistry();
     commonMetricPrefix = metricConfig.getMetricReporterMetricsNamePrefix();
     reporter = MetricsReporterFactory.createReporter(metricConfig, registry);
