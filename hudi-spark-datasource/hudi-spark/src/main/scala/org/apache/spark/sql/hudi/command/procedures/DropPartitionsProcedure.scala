@@ -39,9 +39,8 @@ class DropPartitionsProcedure extends BaseProcedure
 
   private val PARAMETERS = Array[ProcedureParameter](
     ProcedureParameter.optional(0, "table", DataTypes.StringType, None),
-    ProcedureParameter.optional(1, "path", DataTypes.StringType, None),
-    ProcedureParameter.optional(2, "predicate", DataTypes.StringType, None),
-    ProcedureParameter.optional(3, "selected_partitions", DataTypes.StringType, None)
+    ProcedureParameter.optional(1, "predicate", DataTypes.StringType, None),
+    ProcedureParameter.optional(2, "selected_partitions", DataTypes.StringType, None)
   )
 
   private val OUTPUT_TYPE = new StructType(Array[StructField](
@@ -57,11 +56,10 @@ class DropPartitionsProcedure extends BaseProcedure
     super.checkArgs(PARAMETERS, args)
 
     val tableName = getArgValueOrDefault(args, PARAMETERS(0))
-    val tablePath = getArgValueOrDefault(args, PARAMETERS(1))
-    val predicate = getArgValueOrDefault(args, PARAMETERS(2))
-    val parts = getArgValueOrDefault(args, PARAMETERS(3))
+    val predicate = getArgValueOrDefault(args, PARAMETERS(1))
+    val parts = getArgValueOrDefault(args, PARAMETERS(2))
 
-    val basePath: String = getBasePath(tableName, tablePath)
+    val basePath: String = getBasePath(tableName)
     val metaClient = HoodieTableMetaClient.builder.setConf(jsc.hadoopConfiguration()).setBasePath(basePath).build
     val selectedPartitions: String = (parts, predicate) match {
       case (_, Some(p)) => prunePartition(metaClient, p.asInstanceOf[String])
@@ -72,7 +70,7 @@ class DropPartitionsProcedure extends BaseProcedure
     // Set the cleaner policy to lazy.
     spark.sql("set hoodie.cleaner.policy.failed.writes=LAZY")
 
-    val hoodieCatalogTable = HoodieCLIUtils.getHoodieCatalogTable(sparkSession, metaClient.getTableConfig.getTableName)
+    val hoodieCatalogTable = HoodieCLIUtils.getHoodieCatalogTable(sparkSession, tableName.get.asInstanceOf[String])
     if (selectedPartitions.nonEmpty) {
       val parameters = buildHoodieDropPartitionsConfig(sparkSession, hoodieCatalogTable, selectedPartitions)
       HoodieSparkSqlWriter.write(
