@@ -18,13 +18,12 @@
 package org.apache.spark.sql.hudi.command
 
 import org.apache.hudi.common.util.PartitionPathEncodeUtils
-
+import org.apache.spark.internal.Logging
 import org.apache.spark.sql.{Row, SparkSession}
 import org.apache.spark.sql.catalyst.TableIdentifier
 import org.apache.spark.sql.catalyst.catalog.CatalogTypes.TablePartitionSpec
 import org.apache.spark.sql.catalyst.catalog.HoodieCatalogTable
 import org.apache.spark.sql.catalyst.expressions.{Attribute, AttributeReference}
-import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
 import org.apache.spark.sql.execution.datasources.PartitioningUtils
 import org.apache.spark.sql.types.StringType
 
@@ -34,7 +33,7 @@ import org.apache.spark.sql.types.StringType
 case class ShowHoodieTablePartitionsCommand(
     tableIdentifier: TableIdentifier,
     specOpt: Option[TablePartitionSpec])
-  extends HoodieLeafRunnableCommand {
+  extends HoodieLeafRunnableCommand with Logging {
 
   override val output: Seq[Attribute] = {
     AttributeReference("partition", StringType, nullable = false)() :: Nil
@@ -48,12 +47,15 @@ case class ShowHoodieTablePartitionsCommand(
 
     if (partitionColumnNamesOpt.isPresent && partitionColumnNamesOpt.get.nonEmpty && schemaOpt.nonEmpty) {
       if (specOpt.isEmpty) {
+        logInfo("show table partitions specOpt is empty")
         hoodieCatalogTable.getPartitionPaths.map(Row(_))
       } else {
         val spec = specOpt.get
         hoodieCatalogTable.getPartitionPaths.filter { partitionPath =>
+          logInfo("show table partitions partitionPath: " + partitionPath)
           val part = PartitioningUtils.parsePathFragment(partitionPath)
           spec.forall { case (col, value) =>
+            logInfo("show table partitions part: " + part + " value: " + value)
             PartitionPathEncodeUtils.escapePartitionValue(value) == part.getOrElse(col, null)
           }
         }.map(Row(_))
