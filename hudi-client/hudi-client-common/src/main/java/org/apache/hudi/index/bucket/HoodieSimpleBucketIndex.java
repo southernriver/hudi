@@ -56,13 +56,18 @@ public class HoodieSimpleBucketIndex extends HoodieBucketIndex {
           String fileId = fileSlice.getFileId();
           String commitTime = fileSlice.getBaseInstantTime();
 
-          int bucketId = BucketIdentifier.bucketIdFromFileId(fileId);
-          if (!bucketIdToFileIdMapping.containsKey(bucketId)) {
-            bucketIdToFileIdMapping.put(bucketId, new HoodieRecordLocation(commitTime, fileId));
-          } else {
-            // Check if bucket data is valid
+          try {
+            int bucketId = BucketIdentifier.bucketIdFromFileId(fileId);
+            if (!bucketIdToFileIdMapping.containsKey(bucketId)) {
+              bucketIdToFileIdMapping.put(bucketId, new HoodieRecordLocation(commitTime, fileId));
+            } else {
+              // Check if bucket data is valid
+              throw new HoodieIOException("Find multiple files at partition path="
+                  + partition + " belongs to the same bucket id = " + bucketId);
+            }
+          } catch (Exception e) {
             throw new HoodieIOException("Find multiple files at partition path="
-                + partition + " belongs to the same bucket id = " + bucketId);
+                + partition + " belongs to the same fileId = " + fileId);
           }
         });
     return bucketIdToFileIdMapping;
