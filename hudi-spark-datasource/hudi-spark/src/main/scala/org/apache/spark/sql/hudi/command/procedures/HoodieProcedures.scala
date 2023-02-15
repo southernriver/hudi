@@ -93,6 +93,7 @@ object HoodieProcedures {
       ,(DeleteFsFileProcedure.NAME, DeleteFsFileProcedure.builder)
       ,(DropPartitionsProcedure.NAME, DropPartitionsProcedure.builder)
       ,(ArchiveCommitsProcedure.NAME, ArchiveCommitsProcedure.builder)
+      ,(CheckBucketFileIdProcedure.NAME, CheckBucketFileIdProcedure.builder)
     )
   }
 }
