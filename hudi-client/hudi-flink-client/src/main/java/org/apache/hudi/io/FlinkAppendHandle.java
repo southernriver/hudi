@@ -118,7 +118,7 @@ public class FlinkAppendHandle<T extends HoodieRecordPayload, I, K, O>
 
   @Override
   public Path getWritePath() {
-    return writer.getLogFile().getPath();
+    return writer != null ? writer.getLogFile().getPath() : null;
   }
 
   @Override
