@@ -396,13 +396,17 @@ public class StreamWriteOperatorCoordinator
   private void initInstant(String instant) {
     HoodieTimeline completedTimeline =
         StreamerUtil.createMetaClient(conf).getActiveTimeline().filterCompletedInstants();
+    HoodieTimeline pendingTimeline =
+        StreamerUtil.createMetaClient(conf).getActiveTimeline().filterInflightsAndRequested();
     executor.execute(() -> {
       if (instant.equals(WriteMetadataEvent.BOOTSTRAP_INSTANT) || completedTimeline.containsInstant(instant)) {
         // the last instant committed successfully
         reset();
       } else {
-        LOG.info("Recommit instant {}", instant);
-        commitInstant(instant);
+        if (pendingTimeline.containsInstant(instant)) {
+          LOG.info("Recommit instant {}", instant);
+          commitInstant(instant);
+        }
       }
       // starts a new instant
       startInstant();
