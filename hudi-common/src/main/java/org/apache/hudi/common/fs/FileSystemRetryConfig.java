@@ -38,7 +38,7 @@ public class FileSystemRetryConfig  extends HoodieConfig {
 
   public static final ConfigProperty<String> FILESYSTEM_RETRY_ENABLE = ConfigProperty
       .key("hoodie.filesystem.operation.retry.enable")
-      .defaultValue("false")
+      .defaultValue("true")
       .sinceVersion("0.11.0")
       .withDocumentation("Enabled to handle list/get/delete etc file system performance issue.");
 
