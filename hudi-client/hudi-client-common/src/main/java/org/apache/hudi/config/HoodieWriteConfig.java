@@ -408,12 +408,12 @@ public class HoodieWriteConfig extends HoodieConfig {
 
   public static final ConfigProperty<Integer> CLIENT_HEARTBEAT_INTERVAL_IN_MS = ConfigProperty
       .key("hoodie.client.heartbeat.interval_in_ms")
-      .defaultValue(60 * 1000)
+      .defaultValue(86400 * 1000)
       .withDocumentation("Writers perform heartbeats to indicate liveness. Controls how often (in ms), such heartbeats are registered to lake storage.");
 
   public static final ConfigProperty<Integer> CLIENT_HEARTBEAT_NUM_TOLERABLE_MISSES = ConfigProperty
       .key("hoodie.client.heartbeat.tolerable.misses")
-      .defaultValue(2)
+      .defaultValue(3)
       .withDocumentation("Number of heartbeat misses, before a writer is deemed not alive and all pending writes are aborted.");
 
   public static final ConfigProperty<String> WRITE_CONCURRENCY_MODE = ConfigProperty
