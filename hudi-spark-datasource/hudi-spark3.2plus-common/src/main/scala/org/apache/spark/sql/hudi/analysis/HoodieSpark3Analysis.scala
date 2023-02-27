@@ -152,6 +152,12 @@ case class HoodieSpark3PostAnalysisRule(sparkSession: SparkSession) extends Rule
           purge,
           retainData = true
         )
+      case AlterTableSetPropertiesCommand(tableName, properties, isView)
+        if sparkAdapter.isHoodieTable(tableName, sparkSession) =>
+        AlterHoodieTableSetPropertiesCommand(tableName, properties, isView)
+      case AlterTableUnsetPropertiesCommand(tableName, propKeys, ifExists, isView)
+        if sparkAdapter.isHoodieTable(tableName, sparkSession) =>
+        AlterHoodieTableUnsetPropertiesCommand(tableName, propKeys, ifExists, isView)
       case s: ShowTablePropertiesCommand => ShowHoodieTablePropertiesCommand(s.table, s.propertyKey)
       case _ => plan
     }
