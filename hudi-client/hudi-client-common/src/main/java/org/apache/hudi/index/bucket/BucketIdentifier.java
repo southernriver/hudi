@@ -22,6 +22,8 @@ import org.apache.hudi.common.fs.FSUtils;
 import org.apache.hudi.common.model.HoodieKey;
 import org.apache.hudi.common.model.HoodieRecord;
 import org.apache.hudi.keygen.KeyGenUtils;
+import org.apache.log4j.LogManager;
+import org.apache.log4j.Logger;
 
 import java.io.Serializable;
 import java.util.Arrays;
@@ -30,6 +32,9 @@ import java.util.List;
 import java.util.regex.Pattern;
 
 public class BucketIdentifier implements Serializable {
+
+  private static final Logger LOG = LogManager.getLogger(BucketIdentifier.class);
+
   // Compatible with the spark bucket name
   private static final Pattern BUCKET_NAME = Pattern.compile(".*_(\\d+)(?:\\..*)?$");
 
@@ -76,7 +81,12 @@ public class BucketIdentifier implements Serializable {
   }
 
   public static int bucketIdFromFileId(String fileId) {
-    return Integer.parseInt(fileId.substring(0, 8));
+    try {
+      return Integer.parseInt(fileId.substring(0, 8));
+    } catch (NumberFormatException e) {
+      LOG.error("Get bucketId failed from fileId = " + fileId);
+      return -1;
+    }
   }
 
   public static String bucketIdStr(int n) {

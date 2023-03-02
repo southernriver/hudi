@@ -22,6 +22,7 @@ import org.apache.hudi.common.model.HoodieKey;
 import org.apache.hudi.common.model.HoodieRecordLocation;
 import org.apache.hudi.common.util.Option;
 import org.apache.hudi.config.HoodieWriteConfig;
+import org.apache.hudi.exception.HoodieException;
 import org.apache.hudi.exception.HoodieIOException;
 import org.apache.hudi.index.HoodieIndexUtils;
 import org.apache.hudi.table.HoodieTable;
@@ -56,8 +57,8 @@ public class HoodieSimpleBucketIndex extends HoodieBucketIndex {
           String fileId = fileSlice.getFileId();
           String commitTime = fileSlice.getBaseInstantTime();
 
-          try {
-            int bucketId = BucketIdentifier.bucketIdFromFileId(fileId);
+          int bucketId = BucketIdentifier.bucketIdFromFileId(fileId);
+          if (bucketId != -1) {
             if (!bucketIdToFileIdMapping.containsKey(bucketId)) {
               bucketIdToFileIdMapping.put(bucketId, new HoodieRecordLocation(commitTime, fileId));
             } else {
@@ -65,9 +66,6 @@ public class HoodieSimpleBucketIndex extends HoodieBucketIndex {
               throw new HoodieIOException("Find multiple files at partition path="
                   + partition + " belongs to the same bucket id = " + bucketId);
             }
-          } catch (Exception e) {
-            throw new HoodieIOException("Find multiple files at partition path="
-                + partition + " belongs to the same fileId = " + fileId);
           }
         });
     return bucketIdToFileIdMapping;
