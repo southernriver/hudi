@@ -62,6 +62,7 @@ public final class SparkHoodieIndexFactory {
         return new HoodieBloomIndex(config, SparkHoodieBloomIndexHelper.getInstance());
       case GLOBAL_BLOOM:
         return new HoodieGlobalBloomIndex(config, SparkHoodieBloomIndexHelper.getInstance());
+      case FLINK_STATE:
       case SIMPLE:
         return new HoodieSimpleIndex(config, getKeyGeneratorForSimpleIndex(config));
       case GLOBAL_SIMPLE:
