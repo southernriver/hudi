@@ -398,7 +398,7 @@ public class HoodieTimelineArchiver<T extends HoodieAvroPayload, I, K, O> {
         }).flatMap(Collection::stream);
   }
 
-  private Stream<HoodieInstant> getCommitInstantsToArchive() {
+  private Stream<HoodieInstant> getCommitInstantsToArchive() throws IOException {
     // TODO (na) : Add a way to return actions associated with a timeline and then merge/unify
     // with logic above to avoid Stream.concat
     HoodieTimeline commitTimeline = table.getCompletedCommitsTimeline();
@@ -413,9 +413,11 @@ public class HoodieTimelineArchiver<T extends HoodieAvroPayload, I, K, O> {
             .getTimelineOfActions(CollectionUtils.createSet(HoodieTimeline.COMMIT_ACTION, HoodieTimeline.DELTA_COMMIT_ACTION))
             .filterInflights().firstInstant();
 
-    // We cannot have any holes in the commit timeline. We cannot archive any commits which are
-    // made after the first savepoint present.
+    // NOTE: We cannot have any holes in the commit timeline.
+    // We cannot archive any commits which are made after the first savepoint present,
+    // unless HoodieArchivalConfig#ARCHIVE_BEYOND_SAVEPOINT is enabled.
     Option<HoodieInstant> firstSavepoint = table.getCompletedSavepointTimeline().firstInstant();
+    Set<String> savepointTimestamps = table.getSavepointTimestamps();
     if (!commitTimeline.empty() && commitTimeline.countInstants() > maxInstantsToKeep) {
       // For Merge-On-Read table, inline or async compaction is enabled
       // We need to make sure that there are enough delta commits in the active timeline
@@ -429,57 +431,45 @@ public class HoodieTimelineArchiver<T extends HoodieAvroPayload, I, K, O> {
               table.getActiveTimeline(), config.getInlineCompactDeltaCommitMax())
               : Option.empty();
 
+      // The clustering commit instant can not be archived unless we ensure that the replaced files have been cleaned,
+      // without the replaced files metadata on the timeline, the fs view would expose duplicates for readers.
+      Option<HoodieInstant> oldestInstantToRetainForClustering =
+          ClusteringUtils.getOldestInstantToRetainForClustering(table.getActiveTimeline(), table.getMetaClient());
+
       // Actually do the commits
       Stream<HoodieInstant> instantToArchiveStream = commitTimeline.getInstants()
           .filter(s -> {
-            // if no savepoint present, then don't filter
-            return !(firstSavepoint.isPresent() && HoodieTimeline.compareTimestamps(firstSavepoint.get().getTimestamp(), LESSER_THAN_OR_EQUALS, s.getTimestamp()));
+            if (config.shouldArchiveBeyondSavepoint()) {
+              // skip savepoint commits and proceed further
+              return !savepointTimestamps.contains(s.getTimestamp());
+            } else {
+              // if no savepoint present, then don't filter
+              // stop at first savepoint commit
+              return !(firstSavepoint.isPresent() && compareTimestamps(firstSavepoint.get().getTimestamp(), LESSER_THAN_OR_EQUALS, s.getTimestamp()));
+            }
           }).filter(s -> {
-            // Ensure commits >= oldest pending compaction/replace commit is retained
+            // Ensure commits >= the oldest pending compaction commit is retained
             return oldestPendingCompactionAndReplaceInstant
-                .map(instant -> HoodieTimeline.compareTimestamps(instant.getTimestamp(), GREATER_THAN, s.getTimestamp()))
+                .map(instant -> compareTimestamps(instant.getTimestamp(), GREATER_THAN, s.getTimestamp()))
                 .orElse(true);
           }).filter(s -> {
             // We need this to ensure that when multiple writers are performing conflict resolution, eligible instants don't
             // get archived, i.e, instants after the oldestInflight are retained on the timeline
             if (config.getFailedWritesCleanPolicy() == HoodieFailedWritesCleaningPolicy.LAZY) {
               return oldestInflightCommitInstant.map(instant ->
-                      HoodieTimeline.compareTimestamps(instant.getTimestamp(), GREATER_THAN, s.getTimestamp()))
+                      compareTimestamps(instant.getTimestamp(), GREATER_THAN, s.getTimestamp()))
                   .orElse(true);
             }
             return true;
           }).filter(s ->
               oldestInstantToRetainForCompaction.map(instantToRetain ->
+                      compareTimestamps(s.getTimestamp(), LESSER_THAN, instantToRetain.getTimestamp()))
+                  .orElse(true)
+          ).filter(s ->
+              oldestInstantToRetainForClustering.map(instantToRetain ->
                       HoodieTimeline.compareTimestamps(s.getTimestamp(), LESSER_THAN, instantToRetain.getTimestamp()))
                   .orElse(true)
           );
-
-      // When inline or async clustering is enabled, we need to ensure that there is a commit in the active timeline
-      // to check whether the file slice generated in pending clustering after archive isn't committed
-      // via {@code HoodieFileGroup#isFileSliceCommitted(slice)}
-      boolean isOldestPendingReplaceInstant =
-          oldestPendingCompactionAndReplaceInstant.map(instant ->
-              HoodieTimeline.REPLACE_COMMIT_ACTION.equals(instant.getAction())).orElse(false);
-      if (isOldestPendingReplaceInstant) {
-        List<HoodieInstant> instantsToArchive = instantToArchiveStream.collect(Collectors.toList());
-        Option<HoodieInstant> latestInstantRetainForReplace = Option.fromJavaOptional(
-            instantsToArchive.stream()
-                .filter(s -> HoodieTimeline.compareTimestamps(
-                    s.getTimestamp(),
-                    LESSER_THAN,
-                    oldestPendingCompactionAndReplaceInstant.get().getTimestamp()))
-                .reduce((i1, i2) -> i2));
-        if (latestInstantRetainForReplace.isPresent()) {
-          LOG.info(String.format(
-              "Retaining the archived instant %s before the inflight replacecommit %s.",
-              latestInstantRetainForReplace.get().getTimestamp(),
-              oldestPendingCompactionAndReplaceInstant.get().getTimestamp()));
-        }
-        instantToArchiveStream = instantsToArchive.stream()
-            .filter(s -> latestInstantRetainForReplace.map(instant -> s.compareTo(instant) != 0)
-                .orElse(true));
-      }
-
       return instantToArchiveStream.limit(commitTimeline.countInstants() - minInstantsToKeep);
     } else {
       return Stream.empty();
