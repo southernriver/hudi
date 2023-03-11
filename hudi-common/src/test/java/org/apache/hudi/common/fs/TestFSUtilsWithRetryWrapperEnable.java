@@ -39,6 +39,7 @@ import java.util.Arrays;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 /**
@@ -89,6 +90,15 @@ public class TestFSUtilsWithRetryWrapperEnable extends TestFSUtils {
     assertDoesNotThrow(fs::getScheme, "Method #getSchema does not implement correctly");
   }
 
+  @Test
+  public void testGetDefaultReplication() {
+    FakeRemoteFileSystem fakeFs = new FakeRemoteFileSystem(FSUtils.getFs(metaClient.getMetaPath(), metaClient.getHadoopConf()), 100);
+    FileSystem fileSystem = new HoodieRetryWrapperFileSystem(fakeFs, maxRetryIntervalMs, maxRetryNumbers, initialRetryIntervalMs, "");
+    HoodieWrapperFileSystem fs = new HoodieWrapperFileSystem(fileSystem, new NoOpConsistencyGuard());
+    assertEquals(fs.getDefaultReplication(), 3);
+    assertEquals(fs.getDefaultReplication(new Path(basePath)), 3);
+  }
+
   /**
    * Fake remote FileSystem which will throw RuntimeException something like AmazonS3Exception 503.
    */
@@ -97,6 +107,7 @@ public class TestFSUtilsWithRetryWrapperEnable extends TestFSUtils {
     private FileSystem fs;
     private int count = 1;
     private int loop;
+    private short defaultReplication = 3;
 
     public FakeRemoteFileSystem(FileSystem fs, int retryLoop) {
       this.fs = fs;
@@ -220,5 +231,16 @@ public class TestFSUtilsWithRetryWrapperEnable extends TestFSUtils {
     public String getScheme() {
       return fs.getScheme();
     }
+
+    @Override
+    public short getDefaultReplication() {
+      return  defaultReplication;
+    }
+
+    @Override
+    public short getDefaultReplication(Path path) {
+      return defaultReplication;
+    }
+
   }
 }
