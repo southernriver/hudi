@@ -232,10 +232,6 @@ public class BootstrapExecutorUtils implements Serializable {
         .setBaseFileFormat(cfg.baseFileFormat)
         .setBootstrapIndexClass(cfg.bootstrapIndexClass)
         .setBootstrapBasePath(bootstrapBasePath)
-        .setCDCEnabled(props.getBoolean(HoodieTableConfig.CDC_ENABLED.key(),
-            HoodieTableConfig.CDC_ENABLED.defaultValue()))
-        .setCDCSupplementalLoggingMode(props.getString(HoodieTableConfig.CDC_SUPPLEMENTAL_LOGGING_MODE.key(),
-            HoodieTableConfig.CDC_SUPPLEMENTAL_LOGGING_MODE.defaultValue()))
         .setHiveStylePartitioningEnable(props.getBoolean(
             HIVE_STYLE_PARTITIONING_ENABLE.key(),
             Boolean.parseBoolean(HIVE_STYLE_PARTITIONING_ENABLE.defaultValue())

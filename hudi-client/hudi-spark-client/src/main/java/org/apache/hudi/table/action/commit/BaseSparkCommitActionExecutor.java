@@ -334,7 +334,7 @@ public abstract class BaseSparkCommitActionExecutor<T extends HoodieRecordPayloa
   }
 
   protected Iterator<List<WriteStatus>> handleInsertPartition(String instantTime, Integer partition, Iterator recordItr,
-                                                              Partitioner partitioner) {
+                                                              Partitioner partitioner) throws Exception {
     return handleUpsertPartition(instantTime, partition, recordItr, partitioner);
   }
 

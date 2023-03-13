@@ -144,7 +144,8 @@ object HoodieSparkSqlWriter {
         val populateMetaFields = hoodieConfig.getBooleanOrDefault(HoodieTableConfig.POPULATE_META_FIELDS)
         val useBaseFormatMetaFile = hoodieConfig.getBooleanOrDefault(HoodieTableConfig.PARTITION_METAFILE_USE_BASE_FORMAT)
 
-        if (hoodieConfig.getString(HoodieTableConfig.INDEX_TYPE).equals(HoodieIndex.IndexType.BUCKET.name)) {
+        if (hoodieConfig.getString(HoodieTableConfig.INDEX_TYPE) != null &&
+          hoodieConfig.getString(HoodieTableConfig.INDEX_TYPE).equals(HoodieIndex.IndexType.BUCKET.name)) {
           if (hoodieConfig.getString(HoodieTableConfig.BUCKET_INDEX_HASH_FIELD).isEmpty) {
             hoodieConfig.setValue(HoodieTableConfig.BUCKET_INDEX_HASH_FIELD, recordKeyFields)
           }
