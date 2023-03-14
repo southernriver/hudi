@@ -90,6 +90,7 @@ import org.apache.log4j.Logger;
 import java.io.IOException;
 import java.io.Serializable;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -593,23 +594,20 @@ public abstract class HoodieTable<T extends HoodieRecordPayload, I, K, O> implem
   private void deleteInvalidFilesByPartitions(HoodieEngineContext context, Map<String, List<Pair<String, String>>> invalidFilesByPartition) {
     // Now delete partially written files
     context.setJobStatus(this.getClass().getSimpleName(), "Delete invalid files generated during the write operation: " + config.getTableName());
-    context.map(new ArrayList<>(invalidFilesByPartition.values()), partitionWithFileList -> {
-      final FileSystem fileSystem = metaClient.getFs();
-      LOG.info("Deleting invalid data files=" + partitionWithFileList);
-      if (partitionWithFileList.isEmpty()) {
-        return true;
-      }
-      // Delete
-      partitionWithFileList.stream().map(Pair::getValue).forEach(file -> {
-        try {
-          fileSystem.delete(new Path(file), false);
-        } catch (IOException e) {
-          throw new HoodieIOException(e.getMessage(), e);
-        }
-      });
-
-      return true;
-    }, config.getFinalizeWriteParallelism());
+    context.map(invalidFilesByPartition.values().stream()
+            .flatMap(Collection::stream)
+            .collect(Collectors.toList()),
+        partitionFilePair -> {
+          final FileSystem fileSystem = metaClient.getFs();
+          LOG.info("Deleting invalid data file=" + partitionFilePair);
+          // Delete
+          try {
+            fileSystem.delete(new Path(partitionFilePair.getValue()), false);
+          } catch (IOException e) {
+            throw new HoodieIOException(e.getMessage(), e);
+          }
+          return true;
+        }, config.getFinalizeWriteParallelism());
   }
 
   /**
