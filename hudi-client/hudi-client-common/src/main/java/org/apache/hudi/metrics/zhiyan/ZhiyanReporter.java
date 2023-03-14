@@ -40,7 +40,7 @@ import java.util.concurrent.TimeUnit;
 public class ZhiyanReporter extends ScheduledReporter {
 
   private static final Logger LOG = LoggerFactory.getLogger(ZhiyanReporter.class);
-  private final ZhiyanHttpClient client;
+  private ZhiyanHttpClient client;
   private final String jobName;
   private final String hoodieTableName;
   private final String appMask;
@@ -86,6 +86,13 @@ public class ZhiyanReporter extends ScheduledReporter {
     } catch (Exception e) {
       LOG.error("Payload is " + payload);
       LOG.error("Error when report data to zhiyan", e);
+    }
+  }
+
+  @Override
+  public void close() {
+    if (client != null) {
+      client.close();
     }
   }
 

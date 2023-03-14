@@ -44,6 +44,8 @@ import org.apache.http.util.EntityUtils;
 import org.apache.log4j.LogManager;
 import org.apache.log4j.Logger;
 
+import java.io.IOException;
+
 public class ZhiyanHttpClient {
 
   private static final Logger LOG = LogManager.getLogger(ZhiyanHttpClient.class);
@@ -126,4 +128,11 @@ public class ZhiyanHttpClient {
     return entity;
   }
 
+  public void close() {
+    try {
+      httpClient.close();
+    } catch (IOException e) {
+      LOG.error("failed to close http client", e);
+    }
+  }
 }

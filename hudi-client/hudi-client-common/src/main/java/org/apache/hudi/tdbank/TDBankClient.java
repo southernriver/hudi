@@ -41,8 +41,8 @@ public class TDBankClient implements Closeable {
 
   private final String bid;
   private MessageSender sender;
-  private String tdmAddr;
-  private int tdmPort;
+  private final String tdmAddr;
+  private final int tdmPort;
   private volatile boolean hasInit = false;
 
   private static final int RETRY_TIMES = 3;
@@ -56,28 +56,29 @@ public class TDBankClient implements Closeable {
   /**
    * send message to tdbank and return send result
    */
-  public SendResult sendMessage(Object message) throws Exception {
-    init();
-    LOG.info("Send message to tdbank, bid: {}, tid: {}", bid, HUDI_EVENT_TID);
-    int retryTimes = 0;
-    while (retryTimes < RETRY_TIMES) {
-      try {
-        return sender.sendMessage(MAPPER.writeValueAsBytes(message),
-          bid, HUDI_EVENT_TID, 0, UUID.randomUUID().toString(), TDBANK_SENDER_TIMEOUT_MS, TimeUnit.MILLISECONDS);
-      } catch (Exception e) {
-        retryTimes++;
-        LOG.error("Error when send data to tdbank retry " + retryTimes, e);
+  public SendResult sendMessage(Object message) {
+    try {
+      init();
+      LOG.info("Send message to tdbank, bid: {}, tid: {}", bid, HUDI_EVENT_TID);
+      int retryTimes = 0;
+      while (retryTimes < RETRY_TIMES) {
+        try {
+          if (sender != null) {
+            return sender.sendMessage(MAPPER.writeValueAsBytes(message),
+                bid, HUDI_EVENT_TID, 0, UUID.randomUUID().toString(), TDBANK_SENDER_TIMEOUT_MS, TimeUnit.MILLISECONDS);
+          }
+        } catch (Exception e) {
+          retryTimes++;
+          LOG.error("Error when send data to tdbank retry " + retryTimes, e);
+        }
       }
+    } catch (Exception e) {
+      LOG.error("Error when send data to tdbank", e);
     }
     return SendResult.UNKOWN_ERROR;
   }
 
-  @Override
-  public void close() throws IOException {
-    sender.close();
-  }
-
-  private void init() throws Exception {
+  private void init() {
     if (!hasInit) {
       synchronized (this) {
         if (!hasInit) {
@@ -87,12 +88,12 @@ public class TDBankClient implements Closeable {
             BusClientConfig clientConfig =
                 new BusClientConfig(localhost, true, tdmAddr, tdmPort, bid, "all");
             LOG.info("Before sender generated.");
-            sender = new DefaultMessageSender(clientConfig);
+            sender = DefaultMessageSender.generateSenderByClusterId(clientConfig);
             LOG.info("Successfully init sender.");
           } catch (Exception e) {
+            sender = new MockMessageSender();
             LOG.warn("Failed to initialize tdbank client, using mock client instead. "
                 + "Warn: using mock client will ignore all the incoming events", e);
-            throw e;
           }
           hasInit = true;
         }
@@ -100,4 +101,10 @@ public class TDBankClient implements Closeable {
     }
   }
 
+  @Override
+  public void close() throws IOException {
+    if (sender != null) {
+      sender.close();
+    }
+  }
 }
