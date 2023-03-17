@@ -85,7 +85,7 @@ public class StreamReadMonitoringFunction
 
   private volatile boolean isRunning = true;
 
-  private String issuedInstant;
+  private volatile String issuedInstant;
 
   private transient ListState<String> instantState;
 
@@ -168,10 +168,15 @@ public class StreamReadMonitoringFunction
   @Override
   public void run(SourceFunction.SourceContext<MergeOnReadInputSplit> context) throws Exception {
     checkpointLock = context.getCheckpointLock();
+    long taskCount = 0;
+    long start = System.currentTimeMillis();
     while (isRunning) {
       monitorDirAndForwardSplits(context);
+      ++taskCount;
       TimeUnit.SECONDS.sleep(interval);
     }
+    long duration = System.currentTimeMillis() - start;
+    LOG.info("consumed instant fetch time: {} millis, task count: {}", duration, taskCount);
   }
 
   @Nullable
@@ -214,10 +219,11 @@ public class StreamReadMonitoringFunction
       for (MergeOnReadInputSplit split : result.getInputSplits()) {
         context.collect(split);
       }
+
+      // update the issues instant time
+      this.issuedInstant = result.getEndInstant();
     }
 
-    // update the issues instant time
-    this.issuedInstant = result.getEndInstant();
     LOG.info("\n"
             + "------------------------------------------------------------\n"
             + "---------- consumed to instant: {}, time elapsed {}ms\n"
