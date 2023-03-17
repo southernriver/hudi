@@ -80,7 +80,7 @@ public class RowDataProjection implements Serializable {
       try {
         val = rowData.isNullAt(i) ? null : this.fieldGetters[i].getFieldOrNull(rowData);
       } catch (Throwable e) {
-        LOG.error(String.format("position=%s, fieldType=%s,\n data=%s", i, types[i].toString(), rowData.toString()));
+        LOG.error(String.format("position=%s, fieldType=%s,\n data=%s", i, types[i].toString(), rowData.toString()), e);
       }
       genericRowData.setField(i, val);
     }
@@ -97,7 +97,7 @@ public class RowDataProjection implements Serializable {
       try {
         val = rowData.isNullAt(i) ? null : this.fieldGetters[i].getFieldOrNull(rowData);
       } catch (Throwable e) {
-        LOG.error(String.format("position=%s, fieldType=%s,\n data=%s", i, types[i].toString(), rowData.toString()));
+        LOG.error(String.format("position=%s, fieldType=%s,\n data=%s", i, types[i].toString(), rowData.toString()), e);
       }
       values[i] = val;
     }
