@@ -67,7 +67,7 @@ public class TimeWait {
    * Builder.
    */
   public static class Builder {
-    private long timeout = 5 * 60 * 1000L; // default 5 minutes
+    private long timeout = 10 * 60 * 1000L; // default 10 minutes
     private long interval = 1000;
     private String action;
 
