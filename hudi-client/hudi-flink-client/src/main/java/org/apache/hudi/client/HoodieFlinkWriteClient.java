@@ -411,6 +411,9 @@ public class HoodieFlinkWriteClient<T extends HoodieRecordPayload> extends
       HoodieCommitMetadata metadata,
       HoodieTable table,
       String compactionCommitTime) {
+    if (compactionTimer == null) {
+      compactionTimer = metrics.getCompactionCtx();
+    }
     this.context.setJobStatus(this.getClass().getSimpleName(), "Collect compaction write status and commit compaction: " + config.getTableName());
     List<HoodieWriteStat> writeStats = metadata.getWriteStats();
     final HoodieInstant compactionInstant = HoodieTimeline.getCompactionInflightInstant(compactionCommitTime);
@@ -444,22 +447,29 @@ public class HoodieFlinkWriteClient<T extends HoodieRecordPayload> extends
 
   @Override
   protected HoodieWriteMetadata<List<WriteStatus>> compact(String compactionInstantTime, boolean shouldComplete) {
+    compactionTimer = metrics.getCompactionCtx();
     // only used for metadata table, the compaction happens in single thread
     HoodieWriteMetadata<List<WriteStatus>> compactionMetadata = getHoodieTable().compact(context, compactionInstantTime);
     commitCompaction(compactionInstantTime, compactionMetadata.getCommitMetadata().get(), Option.empty());
-    compactionTimer = metrics.getCompactionCtx();
     return compactionMetadata;
   }
 
   @Override
   public HoodieWriteMetadata<List<WriteStatus>> cluster(final String clusteringInstant, final boolean shouldComplete) {
-    throw new HoodieNotSupportedException("Clustering is not supported yet");
+    clusteringTimer = metrics.getClusteringCtx();
+    // only used for metadata table, the cluster happens in single thread
+    HoodieWriteMetadata<List<WriteStatus>> clusterMetadata = getHoodieTable().cluster(context, clusteringInstant);
+    completeClustering((HoodieReplaceCommitMetadata) clusterMetadata.getCommitMetadata().get(), getHoodieTable(), clusteringInstant);
+    return clusterMetadata;
   }
 
   private void completeClustering(
       HoodieReplaceCommitMetadata metadata,
       HoodieTable<T, List<HoodieRecord<T>>, List<HoodieKey>, List<WriteStatus>> table,
       String clusteringCommitTime) {
+    if (clusteringTimer == null) {
+      clusteringTimer = metrics.getClusteringCtx();
+    }
     this.context.setJobStatus(this.getClass().getSimpleName(), "Collect clustering write status and commit clustering");
     HoodieInstant clusteringInstant = new HoodieInstant(HoodieInstant.State.INFLIGHT, HoodieTimeline.REPLACE_COMMIT_ACTION, clusteringCommitTime);
     List<HoodieWriteStat> writeStats = metadata.getPartitionToWriteStats().entrySet().stream().flatMap(e ->

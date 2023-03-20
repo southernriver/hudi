@@ -68,20 +68,6 @@ public class HoodieMetrics {
   private Counter conflictResolutionSuccessCounter = null;
   private Counter conflictResolutionFailureCounter = null;
 
-  public static final String TOTAL_PARTITIONS_WRITTEN = "totalPartitionsWritten";
-  public static final String TOTAL_FILES_INSERT = "totalFilesInsert";
-  public static final String TOTAL_FILES_UPDATE = "totalFilesUpdate";
-  public static final String TOTAL_RECORDS_WRITTEN = "totalRecordsWritten";
-  public static final String TOTAL_UPDATE_RECORDS_WRITTEN = "totalUpdateRecordsWritten";
-  public static final String TOTAL_INSERT_RECORDS_WRITTEN = "totalInsertRecordsWritten";
-  public static final String TOTAL_BYTES_WRITTEN = "totalBytesWritten";
-  public static final String TOTAL_SCAN_TIME = "totalScanTime";
-  public static final String TOTAL_CREATE_TIME = "totalCreateTime";
-  public static final String TOTAL_UPSERT_TIME = "totalUpsertTime";
-  public static final String TOTAL_COMPACTED_RECORDS_UPDATED = "totalCompactedRecordsUpdated";
-  public static final String TOTAL_LOGFILES_COMPACTED = "totalLogFilesCompacted";
-  public static final String TOTAL_LOGFILES_SIZE = "totalLogFilesSize";
-
   // a queue for buffer metrics event.
   private final LinkedBlockingQueue<TdbankHoodieMetricsEvent> queue = new LinkedBlockingQueue<>();
 
