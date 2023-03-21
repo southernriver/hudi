@@ -29,6 +29,7 @@ import org.apache.hudi.common.util.Option;
 import org.apache.hudi.config.HoodieWriteConfig;
 import org.apache.hudi.configuration.FlinkOptions;
 import org.apache.hudi.configuration.OptionsInference;
+import org.apache.hudi.index.HoodieIndex;
 import org.apache.hudi.sink.transform.ChainedTransformer;
 import org.apache.hudi.sink.transform.Transformer;
 import org.apache.hudi.sink.utils.Pipelines;
@@ -137,7 +138,7 @@ public class ITTestDataStreamWrite extends TestLogger {
     assertEquals(1, hoodieInstants.size());
     byte[] data = table.getFileSystemView().getTimeline().getInstantDetails(hoodieInstants.get(0)).get();
     Map<String, String> extraMetadata = HoodieCommitMetadata.fromBytes(data, HoodieCommitMetadata.class).getExtraMetadata();
-    if (indexType.equals("BUCKET")) {
+    if (indexType.equals(HoodieIndex.IndexType.BUCKET.name())) {
       assertEquals("2000", extraMetadata.get(FlinkOptions.EVENT_TIME_FIELD.key()));
     } else {
       assertEquals("4000", extraMetadata.get(FlinkOptions.EVENT_TIME_FIELD.key()));

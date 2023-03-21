@@ -270,6 +270,12 @@ public class FlinkOptions extends HoodieConfig {
       .noDefaultValue()
       .withDescription("event time field name for flink");
 
+  public static final ConfigOption<String> EVENT_TIME_DATE_FORMAT = ConfigOptions
+      .key(HoodiePayloadProps.PAYLOAD_EVENT_TIME_DATE_FORMAT_PROP_KEY)
+      .stringType()
+      .noDefaultValue()
+      .withDescription("event time field date-format for flink");
+
   // this option is experimental
   public static final ConfigOption<Boolean> READ_STREAMING_SKIP_COMPACT = ConfigOptions
       .key("read.streaming.skip_compaction")

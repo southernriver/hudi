@@ -41,5 +41,17 @@ public class TestDataTypeUtils {
 
     long t5 = DataTypeUtils.getAsLong(100, DataTypes.INT().getLogicalType());
     assertEquals(100, t5);
+
+    long t6 = DataTypeUtils.getAsLong("2012/12/12", DataTypes.STRING().getLogicalType(), "yyyy/MM/dd");
+    assertEquals(1355241600000L, t6);
+
+    long t7 = DataTypeUtils.getAsLong("2012/12/12 12", DataTypes.STRING().getLogicalType(), "yyyy/MM/dd HH");
+    assertEquals(1355284800000L, t7);
+
+    long t8 = DataTypeUtils.getAsLong("2012-12-12 12", DataTypes.STRING().getLogicalType(), "yyyy-MM-dd HH");
+    assertEquals(1355284800000L, t8);
+
+    long t9 = DataTypeUtils.getAsLong("2012-12-12 12:12:12", DataTypes.STRING().getLogicalType(), "yyyy-MM-dd HH:mm:ss");
+    assertEquals(1355285532000L, t9);
   }
 }

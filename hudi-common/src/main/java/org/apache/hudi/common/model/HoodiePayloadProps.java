@@ -43,6 +43,8 @@ public class HoodiePayloadProps {
    */
   public static final String PAYLOAD_EVENT_TIME_FIELD_PROP_KEY = "hoodie.payload.event.time.field";
 
+  public static final String PAYLOAD_EVENT_TIME_DATE_FORMAT_PROP_KEY = "hoodie.payload.event.time.date-format";
+
   /**
    * A runtime config pass to the {@link HoodieRecordPayload#getInsertValue(Schema, Properties)}
    * to tell if the current record is a update record or insert record for mor table.

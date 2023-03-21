@@ -18,6 +18,7 @@
 
 package org.apache.hudi.util;
 
+import org.apache.commons.lang3.time.FastDateFormat;
 import org.apache.flink.table.api.DataTypes;
 import org.apache.flink.table.data.TimestampData;
 import org.apache.flink.table.types.DataType;
@@ -39,6 +40,7 @@ import java.time.format.DateTimeParseException;
 import java.time.temporal.TemporalAccessor;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Date;
 import java.util.List;
 
 import static java.time.temporal.ChronoField.DAY_OF_MONTH;
@@ -191,10 +193,23 @@ public class DataTypeUtils {
   }
 
   public static Long getAsLong(Object value, LogicalType logicalType) {
+    return getAsLong(value, logicalType, "");
+  }
+
+  public static Long getAsLong(Object value, LogicalType logicalType, String formatter) {
     if (logicalType.getTypeRoot() == LogicalTypeRoot.TIMESTAMP_WITHOUT_TIME_ZONE
         || logicalType.getTypeRoot() == LogicalTypeRoot.DATE
         || logicalType.getTypeRoot() == LogicalTypeRoot.TIME_WITHOUT_TIME_ZONE) {
       return toMills(toLocalDateTime(value.toString()));
+    } else if ((logicalType.getTypeRoot() == LogicalTypeRoot.CHAR
+        || logicalType.getTypeRoot() == LogicalTypeRoot.VARCHAR) && !formatter.isEmpty()) {
+      try {
+        FastDateFormat fdf = FastDateFormat.getInstance(formatter);
+        Date date = fdf.parse(value.toString());
+        return date.getTime();
+      } catch (Exception ignored) {
+        return -1L;
+      }
     }
     return Long.parseLong(value.toString());
   }

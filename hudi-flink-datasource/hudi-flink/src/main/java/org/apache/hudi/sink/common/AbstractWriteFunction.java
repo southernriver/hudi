@@ -63,6 +63,8 @@ public abstract class AbstractWriteFunction<I> extends ProcessFunction<I, Object
 
   protected RowData.FieldGetter eventTimeFieldGetter;
 
+  protected String eventTimeDateFormat;
+
   protected Schema writeSchema;
 
   public AbstractWriteFunction(Configuration config) {
@@ -75,6 +77,7 @@ public abstract class AbstractWriteFunction<I> extends ProcessFunction<I, Object
           (RowType) AvroSchemaConverter.convertToDataType(this.writeSchema).getLogicalType();
       this.eventTimeDataType = rowType.getTypeAt(eventTimeFieldIndex);
       this.eventTimeFieldGetter = RowData.createFieldGetter(eventTimeDataType, eventTimeFieldIndex);
+      this.eventTimeDateFormat = config.getString(FlinkOptions.EVENT_TIME_DATE_FORMAT);
     }
   }
 
@@ -136,7 +139,7 @@ public abstract class AbstractWriteFunction<I> extends ProcessFunction<I, Object
     try {
       Object eventTimeObject =
           value.isNullAt(eventTimeFieldIndex) ? -1L : this.eventTimeFieldGetter.getFieldOrNull(value);
-      eventTime = DataTypeUtils.getAsLong(eventTimeObject, this.eventTimeDataType);
+      eventTime = DataTypeUtils.getAsLong(eventTimeObject, this.eventTimeDataType, this.eventTimeDateFormat);
       this.currentTimeStamp = Math.max(eventTime, this.currentTimeStamp);
     } catch (Throwable e) {
       throw new HoodieException(String.format("eventTimeFieldIndex=%s, eventTimeDataType=%s, eventTime=%s. ",
