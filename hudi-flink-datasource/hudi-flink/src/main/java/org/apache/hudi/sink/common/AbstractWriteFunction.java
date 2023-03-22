@@ -126,7 +126,7 @@ public abstract class AbstractWriteFunction<I> extends ProcessFunction<I, Object
           .getInsertValue(this.writeSchema).get();
       Long eventTime = HoodieAvroUtils.getNestedFieldValAsLong(
           record, eventTimeField,
-          true, -1L);
+          true, -1L, this.eventTimeDateFormat);
       this.currentTimeStamp = Math.max(eventTime, this.currentTimeStamp);
       return eventTime;
     } catch (IOException e) {

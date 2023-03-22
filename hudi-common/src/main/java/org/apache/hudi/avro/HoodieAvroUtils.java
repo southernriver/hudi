@@ -84,6 +84,7 @@ import static org.apache.avro.Schema.Type.UNION;
 import static org.apache.hudi.avro.AvroSchemaUtils.createNullableSchema;
 import static org.apache.hudi.avro.AvroSchemaUtils.resolveNullableSchema;
 import static org.apache.hudi.avro.AvroSchemaUtils.resolveUnionSchema;
+import static org.apache.hudi.common.util.DateTimeUtils.getTimeWithFormatter;
 
 /**
  * Helper class to do common stuff across Avro.
@@ -658,7 +659,18 @@ public class HoodieAvroUtils {
     return fieldValue;
   }
 
-  public static Long getNestedFieldValAsLong(GenericRecord record, String fieldName,boolean consistentLogicalTimestampEnabled, Long defaultValue) {
+  public static Long getNestedFieldValAsLong(GenericRecord record,
+       String fieldName,
+       boolean consistentLogicalTimestampEnabled,
+       Long defaultValue) {
+    return getNestedFieldValAsLong(record, fieldName, consistentLogicalTimestampEnabled, defaultValue, "");
+  }
+
+  public static Long getNestedFieldValAsLong(GenericRecord record,
+       String fieldName,
+       boolean consistentLogicalTimestampEnabled,
+       Long defaultValue,
+       String formatter) {
     GenericRecord valueNode = record;
     Object fieldValue = valueNode.get(fieldName);
     Schema fieldSchema = valueNode.getSchema().getField(fieldName).schema();
@@ -682,7 +694,12 @@ public class HoodieAvroUtils {
         return convertedValue.longValue();
       }
     }
-    return Objects.isNull(fieldValue) ? defaultValue : Long.parseLong(fieldValue.toString());
+
+    if (formatter.isEmpty()) {
+      return Objects.isNull(fieldValue) ? defaultValue : Long.parseLong(fieldValue.toString());
+    } else {
+      return Objects.isNull(fieldValue) ? defaultValue : getTimeWithFormatter(fieldValue.toString(), formatter);
+    }
   }
 
   public static Schema getNullSchema() {

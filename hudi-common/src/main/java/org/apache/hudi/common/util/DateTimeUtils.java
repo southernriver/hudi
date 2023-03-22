@@ -19,6 +19,8 @@
 
 package org.apache.hudi.common.util;
 
+import org.apache.commons.lang3.time.FastDateFormat;
+
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDateTime;
@@ -30,6 +32,7 @@ import java.time.format.DateTimeParseException;
 import java.time.temporal.ChronoUnit;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
@@ -178,6 +181,16 @@ public class DateTimeUtils {
 
   public static long millisFromTimestamp(LocalDateTime dateTime) {
     return ChronoUnit.MILLIS.between(EPOCH, dateTime.atOffset(ZoneOffset.UTC));
+  }
+
+  public static long getTimeWithFormatter(Object value, String formatter) {
+    try {
+      FastDateFormat fdf = FastDateFormat.getInstance(formatter);
+      Date date = fdf.parse(value.toString());
+      return date.getTime();
+    } catch (Exception ignored) {
+      return -1L;
+    }
   }
 
   /**

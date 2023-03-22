@@ -50,6 +50,7 @@ import static java.time.temporal.ChronoField.MONTH_OF_YEAR;
 import static java.time.temporal.ChronoField.NANO_OF_SECOND;
 import static java.time.temporal.ChronoField.SECOND_OF_MINUTE;
 import static java.time.temporal.ChronoField.YEAR;
+import static org.apache.hudi.common.util.DateTimeUtils.getTimeWithFormatter;
 
 /**
  * Utilities for {@link org.apache.flink.table.types.DataType}.
@@ -203,13 +204,7 @@ public class DataTypeUtils {
       return toMills(toLocalDateTime(value.toString()));
     } else if ((logicalType.getTypeRoot() == LogicalTypeRoot.CHAR
         || logicalType.getTypeRoot() == LogicalTypeRoot.VARCHAR) && !formatter.isEmpty()) {
-      try {
-        FastDateFormat fdf = FastDateFormat.getInstance(formatter);
-        Date date = fdf.parse(value.toString());
-        return date.getTime();
-      } catch (Exception ignored) {
-        return -1L;
-      }
+      return getTimeWithFormatter(value, formatter);
     }
     return Long.parseLong(value.toString());
   }
