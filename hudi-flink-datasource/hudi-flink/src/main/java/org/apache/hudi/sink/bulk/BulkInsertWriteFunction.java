@@ -121,6 +121,7 @@ public class BulkInsertWriteFunction<I>
   @Override
   public void close() {
     if (this.writeClient != null) {
+      this.writeClient.cleanHandlesGracefully();
       this.writeClient.close();
     }
   }

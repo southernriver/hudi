@@ -188,6 +188,7 @@ public class ClusteringOperator extends TableStreamOperator<ClusteringCommitEven
   @Override
   public void close() {
     if (this.writeClient != null) {
+      this.writeClient.cleanHandlesGracefully();
       this.writeClient.close();
       this.writeClient = null;
     }
