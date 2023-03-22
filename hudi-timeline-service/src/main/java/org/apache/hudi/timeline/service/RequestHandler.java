@@ -21,6 +21,7 @@ package org.apache.hudi.timeline.service;
 import org.apache.hudi.common.engine.HoodieEngineContext;
 import org.apache.hudi.common.metrics.Registry;
 import org.apache.hudi.common.table.marker.MarkerOperation;
+import org.apache.hudi.common.table.timeline.HoodieActiveTimeline;
 import org.apache.hudi.common.table.timeline.HoodieInstant;
 import org.apache.hudi.common.table.timeline.HoodieTimeline;
 import org.apache.hudi.common.table.timeline.dto.BaseFileDTO;
@@ -510,11 +511,17 @@ public class RequestHandler {
             HoodieTimeline localTimeline =
                 viewManager.getFileSystemView(context.queryParam(RemoteHoodieTableFileSystemView.BASEPATH_PARAM)).getTimeline();
             if (shouldThrowExceptionIfLocalViewBehind(localTimeline, timelineHashFromClient)) {
-              String errMsg =
-                      "Last known instant from client was "
-                              + lastKnownInstantFromClient
-                              + " but server has the following timeline "
-                              + localTimeline.getInstants().collect(Collectors.toList());
+              Option<HoodieInstant> matchInstantOption = Option.fromJavaOptional(localTimeline.getInstants()
+                  .filter(instant -> HoodieActiveTimeline.EQUALS.test(instant.getTimestamp(), lastKnownInstantFromClient))
+                  .findFirst());
+              String errMsg;
+              if (matchInstantOption.isPresent()) {
+                errMsg = "Last known instant from client was " + lastKnownInstantFromClient
+                    + " and in server's timeline";
+              } else {
+                errMsg = "Last known instant from client was " + lastKnownInstantFromClient
+                    + " and not in server's timeline";
+              }
               throw new BadRequestResponse(errMsg);
             }
           }
