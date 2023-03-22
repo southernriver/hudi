@@ -50,6 +50,7 @@ public class SparkBootstrapDeltaCommitActionExecutor<T extends HoodieRecordPaylo
         table,
         HoodieTimeline.FULL_BOOTSTRAP_INSTANT_TS,
         inputRecordsRDD,
+        Option.empty(),
         extraMetadata);
   }
 }
