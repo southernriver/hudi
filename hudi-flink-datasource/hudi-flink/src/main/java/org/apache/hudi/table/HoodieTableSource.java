@@ -377,7 +377,7 @@ public class HoodieTableSource implements
             .rowType(this.tableRowType)
             .maxCompactionMemoryInBytes(maxCompactionMemoryInBytes)
             .requiredPartitions(getRequiredPartitionPaths()).build();
-        final IncrementalInputSplits.Result result = incrementalInputSplits.inputSplits(metaClient, hadoopConf);
+        final IncrementalInputSplits.Result result = incrementalInputSplits.inputSplits(metaClient, hadoopConf, false);
         if (result.isEmpty()) {
           // When there is no input splits, just return an empty source.
           LOG.warn("No input splits generate for incremental read, returns empty collection instead");

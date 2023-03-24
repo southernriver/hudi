@@ -202,7 +202,7 @@ public class StreamReadMonitoringFunction
 
     long start = System.currentTimeMillis();
     IncrementalInputSplits.Result result =
-        incrementalInputSplits.inputSplits(metaClient, this.hadoopConf, this.issuedInstant);
+        incrementalInputSplits.inputSplits(metaClient, this.hadoopConf, this.issuedInstant, false);
     if (result.isEmpty()) {
       // no new instants, returns early
       return;
