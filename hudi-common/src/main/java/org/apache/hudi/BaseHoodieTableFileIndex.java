@@ -247,7 +247,10 @@ public abstract class BaseHoodieTableFileIndex implements AutoCloseable {
       Map<String, PartitionPath> fullPartitionPathsMapToFetch = pathToFetch.stream()
           .collect(Collectors.toMap(
               partitionPath -> partitionPath.fullPartitionPath(basePath).toString(),
-              Function.identity())
+              Function.identity(), (v1, v2) -> {
+                LOG.warn("Duplicate partitionPath: " + v2.fullPartitionPath(basePath).toString());
+                return v2;
+              })
           );
 
       fetchedPartitionToFiles =
