@@ -407,7 +407,8 @@ public class HoodieAppendHandle<T extends HoodieRecordPayload, I, K, O> extends 
         recordsToDelete.clear();
       }
     } catch (Exception e) {
-      throw new HoodieAppendException("Failed while appending records to " + writer.getLogFile().getPath(), e);
+      throw new HoodieAppendException("Failed while appending records to " + writer.getLogFile().getPath() +
+          " Replication: " + hoodieTable.getMetaClient().getFs().getDefaultReplication(), e);
     }
   }
 
