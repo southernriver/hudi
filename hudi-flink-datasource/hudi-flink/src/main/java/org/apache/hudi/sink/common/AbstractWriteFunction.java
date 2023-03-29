@@ -20,6 +20,7 @@ package org.apache.hudi.sink.common;
 
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericRecord;
+import org.apache.avro.generic.IndexedRecord;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.runtime.operators.coordination.OperatorEvent;
 import org.apache.flink.runtime.operators.coordination.OperatorEventGateway;
@@ -30,6 +31,7 @@ import org.apache.flink.table.types.logical.LogicalType;
 import org.apache.flink.table.types.logical.RowType;
 import org.apache.hudi.avro.HoodieAvroUtils;
 import org.apache.hudi.common.model.HoodieAvroRecord;
+import org.apache.hudi.common.util.Option;
 import org.apache.hudi.configuration.FlinkOptions;
 import org.apache.hudi.exception.HoodieException;
 import org.apache.hudi.util.AvroSchemaConverter;
@@ -122,13 +124,16 @@ public abstract class AbstractWriteFunction<I> extends ProcessFunction<I, Object
 
   public long extractTimestamp(HoodieAvroRecord value) {
     try {
-      GenericRecord record = (GenericRecord) value.getData()
-          .getInsertValue(this.writeSchema).get();
-      Long eventTime = HoodieAvroUtils.getNestedFieldValAsLong(
-          record, eventTimeField,
-          true, -1L, this.eventTimeDateFormat);
-      this.currentTimeStamp = Math.max(eventTime, this.currentTimeStamp);
-      return eventTime;
+      Option<IndexedRecord> record = value.getData().getInsertValue(this.writeSchema);
+      if (record.isPresent()) {
+        Long eventTime = HoodieAvroUtils.getNestedFieldValAsLong(
+            (GenericRecord) record.get(), eventTimeField,
+            true, -1L, this.eventTimeDateFormat);
+        this.currentTimeStamp = Math.max(eventTime, this.currentTimeStamp);
+        return eventTime;
+      } else {
+        return -1L;
+      }
     } catch (IOException e) {
       throw new HoodieException("extract event time failed. " + e);
     }
