@@ -30,6 +30,7 @@ import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.PathFilter;
 import org.apache.hadoop.fs.RemoteIterator;
 import org.apache.hadoop.fs.permission.FsPermission;
+import org.apache.hadoop.hdfs.DistributedFileSystem;
 import org.apache.hadoop.util.Progressable;
 import org.apache.hudi.common.util.RetryHelper;
 
@@ -154,19 +155,77 @@ public class HoodieRetryWrapperFileSystem extends FileSystem {
     return (boolean) new RetryHelper(maxRetryIntervalMs, maxRetryNumbers, initialRetryIntervalMs, retryExceptionsList).tryWith(() -> fileSystem.createNewFile(f)).start();
   }
 
+  private void recoverLease(Path f, DistributedFileSystem dfs) throws IOException {
+    boolean isClosed = dfs.isFileClosed(f);
+    int retryNum = 0;
+    while (!isClosed && ++retryNum <= maxRetryNumbers) {
+      try {
+        LOG.info("Retry " + retryNum + " times to recover lease for path " + f.toString());
+        dfs.recoverLease(f);
+        Thread.sleep(1000L);
+      } catch (InterruptedException e) {
+        throw new IOException("Recover lease failed: ", e);
+      }
+      isClosed = dfs.isFileClosed(f);
+    }
+
+    if (isClosed) {
+      LOG.info("Success to recover lease after retried " + retryNum + " times.");
+    }
+  }
+
+  public FSDataOutputStream appendClosable(Path f, int bufferSize, Progressable progress) throws IOException {
+    FSDataOutputStream fsDataOutputStream = null;
+    try {
+      fsDataOutputStream = fileSystem.append(f, bufferSize, progress);
+    } catch (IOException io) {
+      if (fileSystem instanceof DistributedFileSystem) {
+        recoverLease(f, (DistributedFileSystem) fileSystem);
+        throw io;
+      }
+    }
+    return fsDataOutputStream;
+  }
+
+  public FSDataOutputStream appendClosable(Path f, int bufferSize) throws IOException {
+    FSDataOutputStream fsDataOutputStream = null;
+    try {
+      fsDataOutputStream = fileSystem.append(f, bufferSize);
+    } catch (IOException io) {
+      if (fileSystem instanceof DistributedFileSystem) {
+        recoverLease(f, (DistributedFileSystem) fileSystem);
+        throw new IOException("Catch Exception after recovering lease whether success or failure.", io);
+      }
+    }
+    return fsDataOutputStream;
+  }
+
+  public FSDataOutputStream appendClosable(Path f) throws IOException {
+    FSDataOutputStream fsDataOutputStream = null;
+    try {
+      fsDataOutputStream = fileSystem.append(f);
+    } catch (IOException io) {
+      if (fileSystem instanceof DistributedFileSystem) {
+        recoverLease(f, (DistributedFileSystem) fileSystem);
+        throw io;
+      }
+    }
+    return fsDataOutputStream;
+  }
+
   @Override
   public FSDataOutputStream append(Path f, int bufferSize, Progressable progress) throws IOException {
-    return (FSDataOutputStream) new RetryHelper(maxRetryIntervalMs, maxRetryNumbers, initialRetryIntervalMs, retryExceptionsList).tryWith(() -> fileSystem.append(f, bufferSize, progress)).start();
+    return (FSDataOutputStream) new RetryHelper(maxRetryIntervalMs, maxRetryNumbers, initialRetryIntervalMs, retryExceptionsList).tryWith(() -> appendClosable(f, bufferSize, progress)).start();
   }
 
   @Override
   public FSDataOutputStream append(Path f) throws IOException {
-    return (FSDataOutputStream) new RetryHelper(maxRetryIntervalMs, maxRetryNumbers, initialRetryIntervalMs, retryExceptionsList).tryWith(() -> fileSystem.append(f)).start();
+    return (FSDataOutputStream) new RetryHelper(maxRetryIntervalMs, maxRetryNumbers, initialRetryIntervalMs, retryExceptionsList).tryWith(() -> appendClosable(f)).start();
   }
 
   @Override
   public FSDataOutputStream append(Path f, int bufferSize) throws IOException {
-    return (FSDataOutputStream) new RetryHelper(maxRetryIntervalMs, maxRetryNumbers, initialRetryIntervalMs, retryExceptionsList).tryWith(() -> fileSystem.append(f, bufferSize)).start();
+    return (FSDataOutputStream) new RetryHelper(maxRetryIntervalMs, maxRetryNumbers, initialRetryIntervalMs, retryExceptionsList).tryWith(() -> appendClosable(f, bufferSize)).start();
   }
 
   @Override
